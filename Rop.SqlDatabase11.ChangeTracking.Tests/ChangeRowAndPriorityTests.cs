@@ -33,7 +33,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_Sorts_Changes_By_Operation()
     {
-        var d = new DeltaChanges(SingleKey(), 3, 0, new[]
+        var d = new TableDelta(SingleKey(), 3, 0, new[]
         {
             new ChangeRow(3, null, ChangeOperation.Insert),
             new ChangeRow(1, null, ChangeOperation.Delete),
@@ -60,7 +60,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_GetKeys_Returns_Ids()
     {
-        var d = new DeltaChanges(SingleKey(), 2, 0, new[]
+        DeltaChanges d = new TableDelta(SingleKey(), 2, 0, new[]
         {
             new ChangeRow(1, null, ChangeOperation.Insert),
             new ChangeRow(2, null, ChangeOperation.Insert)
@@ -72,7 +72,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_GetPartialKeys_Throws_On_Single_Key()
     {
-        var d = new DeltaChanges(SingleKey(), 1, 0, new[] { new ChangeRow(1, null, ChangeOperation.Insert) });
+        DeltaChanges d = new TableDelta(SingleKey(), 1, 0, new[] { new ChangeRow(1, null, ChangeOperation.Insert) });
 
         Assert.Throws<InvalidOperationException>(() => d.GetPartialKeys().ToList());
     }
@@ -80,7 +80,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_GetPartialKeys_Returns_Tuples()
     {
-        var d = new DeltaChanges(PartialKey(), 1, 0, new[] { new ChangeRow(1, "A", ChangeOperation.Insert) });
+        DeltaChanges d = new TableDelta(PartialKey(), 1, 0, new[] { new ChangeRow(1, "A", ChangeOperation.Insert) });
 
         var keys = d.GetPartialKeys().ToList();
 
@@ -90,7 +90,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_KeyType_Info()
     {
-        var d = new DeltaChanges(SingleKey(), 1, 0, new[] { new ChangeRow(1, null, ChangeOperation.Insert) });
+        DeltaChanges d = new TableDelta(SingleKey(), 1, 0, new[] { new ChangeRow(1, null, ChangeOperation.Insert) });
 
         Assert.Equal(typeof(int), d.GetKeyType);
         Assert.Equal(TypeCode.Int32, d.GetKeyTypeCode);
@@ -99,10 +99,10 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_Can_Be_Empty_With_New_Version()
     {
-        // SD-7: el estado "version nueva pero sin cambios" es posible (todas las
-        // operaciones filtradas como Unknown). PayLoad debe avanzar TableVersion
-        // en este caso; este test fija el contrato del estado.
-        var d = new DeltaChanges(SingleKey(), 5, 0, new List<ChangeRow>());
+        // SD-7/U-1: el estado "version nueva pero sin cambios" es posible (todas las
+        // operaciones filtradas como Unknown). Se modela como EmptyDelta con
+        // version nueva; PayLoad debe avanzar TableVersion en este caso.
+        DeltaChanges d = new EmptyDelta(SingleKey(), 5, 0);
 
         Assert.True(d.IsEmpty);
         Assert.True(d.IsNewVersion);
@@ -164,7 +164,7 @@ public class ChangeRowAndPriorityTests
     public void DeltaChanges_GetKeys_Generic_Returns_Typed_Keys()
     {
         // SD-19: acceso tipado sin casts en el consumidor.
-        var d = new DeltaChanges(SingleKey(), 2, 0, new[]
+        DeltaChanges d = new TableDelta(SingleKey(), 2, 0, new[]
         {
             new ChangeRow(1, null, ChangeOperation.Insert),
             new ChangeRow(2, null, ChangeOperation.Insert)
@@ -177,7 +177,7 @@ public class ChangeRowAndPriorityTests
     public void DeltaChanges_GetKeys_Generic_Wrong_Type_Throws()
     {
         // int -> string seria convertible via IConvertible; int -> Guid no.
-        var d = new DeltaChanges(SingleKey(), 1, 0, new[] { new ChangeRow(1, null, ChangeOperation.Insert) });
+        DeltaChanges d = new TableDelta(SingleKey(), 1, 0, new[] { new ChangeRow(1, null, ChangeOperation.Insert) });
 
         Assert.Throws<InvalidCastException>(() => d.GetKeys<Guid>().ToList());
     }
@@ -185,7 +185,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_GetPartialKeys_Generic_Returns_Typed_Tuples()
     {
-        var d = new DeltaChanges(PartialKey(), 1, 0, new[] { new ChangeRow(1, "A", ChangeOperation.Insert) });
+        DeltaChanges d = new TableDelta(PartialKey(), 1, 0, new[] { new ChangeRow(1, "A", ChangeOperation.Insert) });
 
         var keys = d.GetPartialKeys<int, string>().ToList();
 

@@ -1,13 +1,13 @@
 # TODO
 
-## Decisiones pendientes
+## Decisiones cerradas
 
-- [ ] **AB-3**: decidir sobre `ExtractConn` virtual llamada desde el constructor base (`Rop.AbsDatabase11/AbsDatabase.cs:53, 62`) — verificar uso real en entorno antes de hacerla no virtual o perezosa
 - [x] **AB-8**: política de retry ante fallos transitorios implementada el 2026-11-19 (`RetryPolicy` en AbsDatabase11; writes transaccionales; PayLoad sin retry por decisión)
+- [x] **AB-3**: cerrada el 2026-11-19 — decisión del autor: se deja como está (documentada en `Docs/00`); no se aborda
 
 ## Refactorización C# 15 (según `Docs/01-mejoras-net11-csharp15.md`)
 
-- [ ] U-1: `DeltaChanges` → union `EmptyDelta | TableDelta` (breaking público)
+- [x] U-1: `DeltaChanges` → union `EmptyDelta | TableDelta` aplicada el 2026-11-19 (con `IsEmpty`/`IsNewVersion`/`NoNewVersion`/`Changes`/`GetKeys*` como miembros de la union para minimizar el switch)
 - [ ] U-2: `CacheItem<T>` → union `CacheState<T>` (breaking público)
 - [ ] CA-1/CA-2: collection expression arguments en `MemoryCache` y listas con capacidad
 - [ ] EI-1/EI-2/EI-3: extension indexers en `IAbsSimpleSqlRepository`, `MemoryCache`, `RepositoryDictionary`, `Database`

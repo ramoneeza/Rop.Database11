@@ -126,8 +126,11 @@ namespace Rop.Database11
             var r = conn.Query<ChangeRowDto>(cmdStr,new {lastversion=lastv}).ToList();
             if (r.Count == 0) return DeltaChanges.Empty(td,lastv);
             var cv = r.Max(cr => cr.SYS_CHANGE_VERSION);
-            var all = r.Select(dto => dto.ToChangeRow(td)).Where(c => c.Operation != ChangeOperation.Unknown);
-            return new DeltaChanges(td,cv, lastv, all);
+            var all = r.Select(dto => dto.ToChangeRow(td)).Where(c => c.Operation != ChangeOperation.Unknown).ToList();
+            // U-1: si todos los cambios se filtraron como Unknown, la version puede
+            // haber avanzado igualmente (SD-7): EmptyDelta con la version nueva.
+            DeltaChanges delta = all.Count == 0 ? new EmptyDelta(td,cv, lastv) : new TableDelta(td,cv, lastv, all);
+            return delta;
         }
         /// <summary>
         /// Polls CHANGETABLE asynchronously for the rows changed in the table since the given version.
@@ -149,8 +152,11 @@ namespace Rop.Database11
             var r = (await conn.QueryAsync<ChangeRowDto>(cmdStr, new { lastversion = lastv })).ToList();
             if (r.Count == 0) return DeltaChanges.Empty(td,lastv);
             var cv = r.Max(cr => cr.SYS_CHANGE_VERSION);
-            var all = r.Select(dto => dto.ToChangeRow(td)).Where(c => c.Operation != ChangeOperation.Unknown);
-            return new DeltaChanges(td,cv, lastv, all);
+            var all = r.Select(dto => dto.ToChangeRow(td)).Where(c => c.Operation != ChangeOperation.Unknown).ToList();
+            // U-1: si todos los cambios se filtraron como Unknown, la version puede
+            // haber avanzado igualmente (SD-7): EmptyDelta con la version nueva.
+            DeltaChanges delta = all.Count == 0 ? new EmptyDelta(td,cv, lastv) : new TableDelta(td,cv, lastv, all);
+            return delta;
         }
 
         [SuppressMessage("ReSharper", "InconsistentNaming")]

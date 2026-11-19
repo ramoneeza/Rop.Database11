@@ -20,4 +20,9 @@ Todos los cambios relevantes de documentación y arquitectura de `Rop.Database11
 
 - Todos los writes internos de `AbsDatabase` pasan a la ruta transaccional (Insert/Update/InsertOrUpdate/Execute/Delete/DeleteByKey/UpdateIdValue/DeleteByPartialKey/InsertNoKeyAtt/InsertOrUpdateMerge, sync y async) para que el reintento sea seguro; la ruta sin transacción queda para lecturas.
 - `SqlTableDependency.PayLoad` no reintenta (decisión): el polling se autocura en el siguiente ciclo.
+- AB-3 cerrada por decisión del autor: `ExtractConn` se mantiene `virtual` y llamada desde el constructor base, documentada como advertencia para consumidores externos.
+
+### Changed (refactor C# 15)
+
+- U-1 aplicada: `DeltaChanges` pasa de record con flags a **union** `DeltaChanges(EmptyDelta, TableDelta)` (`Tracking/DeltaChanges.cs`). `EmptyDelta` lleva `OldVersion` para conservar la semántica de `IsNewVersion`/`NoNewVersion`; las propiedades de estado, `Changes`, `GetKeys*` y `GetPartialKeys*` se mantienen como miembros de la union (switch interno) para minimizar el impacto en consumidores — `PayLoad` y los handlers de los repos no cambiaron. `ConnectionHelper.GetTableChanges` crea `EmptyDelta` con versión nueva cuando todos los cambios se filtran como `Unknown`. Breaking: el constructor público `new DeltaChanges(...)` desaparece (`new TableDelta(...)` / `new EmptyDelta(...)`). Suites en verde (216 tests).
 - Tests: 14 nuevos en `RetryPolicyTests` (Rop.AbsDatabase11.Tests). Suites en verde: AbsDb 55, SqlDb 106, CT 55 (216 tests).
