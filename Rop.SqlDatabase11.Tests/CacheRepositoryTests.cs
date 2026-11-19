@@ -2,6 +2,7 @@ using Dapper;
 using Microsoft.Data.SqlClient;
 using Rop.Dapper.ContribEx11;
 using Rop.Database11.CacheRepository;
+using Rop.Database11.Repository;
 using Rop.Results9;
 // Alias con nombre distinto: "Database" enlazaría al namespace Rop.Database (miembro del padre Rop)
 // y los using/aliases no pueden vencer a un miembro del namespace contenedor.
@@ -256,4 +257,45 @@ public class CacheRepositoryTests : IDisposable
         release.TrySetResult();
         await getAllTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
+
+    // ==== Riqueza de CacheRepository (variantes DTO/string e ISqlRepository) ====
+
+    private sealed class SimpleIntDtoRepo : AbsSimpleCacheSqlIntRepository<ItemIntView, ItemIntAuto>
+    {
+        public SimpleIntDtoRepo(SqlDb db) : base(db, TimeSpan.FromHours(1), TimeSpan.FromHours(1)) { }
+        protected override ItemIntView Map(ItemIntAuto item) => new() { Id = item.Id, Name = item.Name };
+        protected override EnumerableResult<ItemIntView> IntReloadAll() => throw new NotSupportedException();
+        protected override EnumerableResult<ItemIntView> IntReloadSome(params IEnumerable<int> keys) => throw new NotSupportedException();
+    }
+
+    private sealed class SimpleStringDtoRepo : AbsSimpleCacheSqlRepository<ItemStringKey, ItemStringKey>
+    {
+        public SimpleStringDtoRepo(SqlDb db) : base(db, TimeSpan.FromHours(1), TimeSpan.FromHours(1)) { }
+        protected override ItemStringKey Map(ItemStringKey item) => item;
+        protected override EnumerableResult<ItemStringKey> IntReloadAll() => throw new NotSupportedException();
+        protected override EnumerableResult<ItemStringKey> IntReloadSome(params IEnumerable<string> keys) => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public void Simple_Int_Dto_Repo_Exposes_Keys_And_Simple_Interface()
+    {
+        var db = new SqlDb(_connection.ConnectionString);
+        var repo = new SimpleIntDtoRepo(db);
+
+        Assert.IsAssignableFrom<IAbsSimpleSqlRepository<ItemIntView, int>>(repo);
+        Assert.Equal(42, repo.GetDKey(new ItemIntAuto { Id = 42, Name = "X", Quantity = 1 }));
+        Assert.Equal(7, repo.GetTKey(new ItemIntView { Id = 7 }));
+    }
+
+    [Fact]
+    public void Simple_String_Dto_Repo_Exposes_Keys_And_Simple_Interface()
+    {
+        var db = new SqlDb(_connection.ConnectionString);
+        var repo = new SimpleStringDtoRepo(db);
+
+        Assert.IsAssignableFrom<IAbsSimpleSqlRepository<ItemStringKey, string>>(repo);
+        Assert.Equal("K1", repo.GetDKey(new ItemStringKey { Id = "K1", Name = "X" }));
+        Assert.Equal("K2", repo.GetTKey(new ItemStringKey { Id = "K2", Name = "Y" }));
+    }
+
 }

@@ -25,4 +25,13 @@ Todos los cambios relevantes de documentación y arquitectura de `Rop.Database11
 ### Changed (refactor C# 15)
 
 - U-1 aplicada: `DeltaChanges` pasa de record con flags a **union** `DeltaChanges(EmptyDelta, TableDelta)` (`Tracking/DeltaChanges.cs`). `EmptyDelta` lleva `OldVersion` para conservar la semántica de `IsNewVersion`/`NoNewVersion`; las propiedades de estado, `Changes`, `GetKeys*` y `GetPartialKeys*` se mantienen como miembros de la union (switch interno) para minimizar el impacto en consumidores — `PayLoad` y los handlers de los repos no cambiaron. `ConnectionHelper.GetTableChanges` crea `EmptyDelta` con versión nueva cuando todos los cambios se filtran como `Unknown`. Breaking: el constructor público `new DeltaChanges(...)` desaparece (`new TableDelta(...)` / `new EmptyDelta(...)`). Suites en verde (216 tests).
+- U-2 aplicada: `CacheItem<T>` eliminado y sustituido por la **union** `CacheState<T>(ValidItem<T>, JustExpiredItem, ExpiredItem)` (`CacheRepository/CacheState.cs`). `MemoryCache<K,T>` guarda estados de union y `TryGetValue` devuelve `CacheState<T>?` (null = clave inexistente) calculando el estado con un único switch sobre `ExpireAt`; desaparece el `InternalCacheItem`. Los consumidores del repo cache usan pattern matching. Breaking: `CacheItem<T>` y el `TryGetValue` con `out` desaparecen. Tests nuevos de transición de estados. Suites en verde (217 tests).
+
+### Added
+
+- Riqueza de `CacheRepository` completada: `AbsSimpleCacheSqlIntRepository<T,D>` y `AbsSimpleCacheSqlRepository<T,D>` (simples con DTO, claves int/string). Tests: 2 nuevos en `CacheRepositoryTests` (interfaces y claves DTO int/string).
+
+### Removed
+
+- Eliminada la variante con change tracking de `CacheRepository` (`AbsCacheSqlRepositoryK<T,D,K>`, `AbsCacheSqlDtoRepository<T,D>`, `AbsCacheSqlDtoIntRepository<T,D>`, `AbsCacheSqlRepository<T,K>`, `AbsCacheSqlRepository<T>`, `AbsCacheSqlIntRepository<T>`) por decisión de diseño: el cache está pensado para tablas/bases de datos SIN control de cambios (la expiración sustituye al CT); el híbrido cache+CT era conceptualmente redundante con los repositorios normales con CT. `CacheRepository` queda como familia CT-free sobre `IAbsSimpleSqlRepository<T,K>` (ya sin CT, sin cambios de interfaz). Suites en verde (219 tests).
 - Tests: 14 nuevos en `RetryPolicyTests` (Rop.AbsDatabase11.Tests). Suites en verde: AbsDb 55, SqlDb 106, CT 55 (216 tests).

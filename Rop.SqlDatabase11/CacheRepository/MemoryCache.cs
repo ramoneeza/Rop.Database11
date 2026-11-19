@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Rop.Database11.CacheRepository;
 
@@ -10,7 +9,7 @@ namespace Rop.Database11.CacheRepository;
 /// <typeparam name="T">Type of the cached values.</typeparam>
 public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
 {
-    private readonly Dictionary<K, InternalCacheItem> _cache;
+    private readonly Dictionary<K, CacheState<T>> _cache;
     private readonly Timer _cleanupTimer;
     private readonly TimeSpan _defaultExpiration;
     private readonly Lock _lock = new();
@@ -32,7 +31,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
     {
         _getKeyFn= getKeyFn;
         _comparer = comparer ?? EqualityComparer<K>.Default;
-        _cache = new Dictionary<K, InternalCacheItem>(comparer);
+        _cache = new Dictionary<K, CacheState<T>>(comparer);
         _defaultExpiration = defaultExpiration;
         // Configuramos un temporizador para limpiar los elementos expirados periódicamente
         _cleanupTimer = new Timer(_cleanup, null, cleanupInterval, cleanupInterval);
@@ -48,7 +47,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         lock (_lock)
         {
             var expireAt = DateTime.UtcNow + (expiration ?? _defaultExpiration);
-            _cache[key] = new InternalCacheItem(value, expireAt);
+            _cache[key] = new ValidItem<T>(value, expireAt);
         }
     }
     /// <summary>
@@ -64,7 +63,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
             foreach (var value in items)
             {
                 var key=_getKeyFn(value);
-                _cache[key] = new InternalCacheItem(value, expireAt);
+                _cache[key] = new ValidItem<T>(value, expireAt);
             }
         }
     }
@@ -83,29 +82,43 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
     /// Tries to get a cached value, expiring it in place if its time has passed.
     /// </summary>
     /// <param name="key">Key of the value.</param>
-    /// <param name="value">Cached item state, or null when not found.</param>
-    /// <returns>True if an entry (even just expired) was found.</returns>
-    public bool TryGetValue(K key, [MaybeNullWhen(false)] out CacheItem<T> value)
+    /// <returns>State of the cached entry, or null when the key is not present.
+    /// When an entry expires on this access, its value is disposed and a
+    /// <see cref="JustExpiredItem"/> is returned (a <see cref="CacheCleanUpArgs{K}"/>
+    /// event is raised for that key).</returns>
+    public CacheState<T>? TryGetValue(K key)
     {
+        CacheState<T>? result;
         lock (_lock)
         {
-            value = _cache.GetValueOrDefault(key)?.GetOrExpire(null);
+            if (!_cache.TryGetValue(key, out var state)) result = null;
+            else
+            {
+                result = state switch
+                {
+                    // U-2: el estado se calcula con un único switch que compara ExpireAt.
+                    ValidItem<T> vi when vi.ExpireAt < DateTime.UtcNow => _expireNow(key, vi),
+                    _ => state,
+                };
+            }
         }
-        if (value is null) return false;
-        if (value.IsJustExpired) OnCacheCleanUp(key);
-        return true;
+        if (result is JustExpiredItem) OnCacheCleanUp(key);
+        return result;
+    }
+
+    private CacheState<T> _expireNow(K key, ValidItem<T> vi)
+    {
+        if (vi.Value is IDisposable d) d.Dispose();
+        _cache[key] = new ExpiredItem();
+        return new JustExpiredItem();
     }
 
     /// <summary>
     /// Gets the cached item for a key, or null when not present.
     /// </summary>
     /// <param name="key">Key of the value.</param>
-    /// <returns>Cached item, or null.</returns>
-    public CacheItem<T>? GetValueOrDefault(K key)
-    {
-        TryGetValue(key, out var cacheitem);
-        return cacheitem;
-    }
+    /// <returns>State of the cached entry, or null.</returns>
+    public CacheState<T>? GetValueOrDefault(K key) => TryGetValue(key);
     /// <summary>
     /// Raises the <see cref="CacheCleanUp"/> event, isolating handler exceptions.
     /// </summary>
@@ -185,7 +198,12 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
             foreach (var k in key)
             {
                 // Las claves ausentes (p. ej. INSERTs del change tracking aún no cacheados) se ignoran.
-                if (_cache.TryGetValue(k, out var item) && item.ForceExpiration()) res.Add(k);
+                if (_cache.TryGetValue(k, out var state) && state is ValidItem<T> vi)
+                {
+                    if (vi.Value is IDisposable d) d.Dispose();
+                    _cache[k] = new ExpiredItem();
+                    res.Add(k);
+                }
             }
         }
         if (res.Any()) OnCacheCleanUp(res);
@@ -210,7 +228,16 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         lock (_lock)
         {
             var now = DateTime.UtcNow;
-            expiredKeys = _cache.Where(kvp => kvp.Value.GetOrExpire(now).IsJustExpired).Select(kvp => kvp.Key).ToList();
+            expiredKeys = new List<K>();
+            foreach (var kvp in _cache)
+            {
+                if (kvp.Value is ValidItem<T> vi && vi.ExpireAt < now)
+                {
+                    if (vi.Value is IDisposable d) d.Dispose();
+                    _cache[kvp.Key] = new ExpiredItem();
+                    expiredKeys.Add(kvp.Key);
+                }
+            }
         }
         OnCacheCleanUp(expiredKeys);
     }
@@ -225,7 +252,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         {
             foreach (var key in keys)
             {
-                if (!_cache.ContainsKey(key)) _cache[key] = InternalCacheItem.FactoryExpired();
+                if (!_cache.ContainsKey(key)) _cache[key] = new ExpiredItem();
             }
         }
     }
@@ -245,7 +272,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
             }
             foreach (var key in newkeys.Except(oldkeys))
             {
-                _cache[key] = InternalCacheItem.FactoryExpired();
+                _cache[key] = new ExpiredItem();
             }
         }
     }
@@ -260,7 +287,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         lock (_lock)
         {
             return _cache.Values
-                .Select(v => v.GetNoExpire())
+                .Select(v => v is ValidItem<T> vi ? vi.Value : null)
                 .Where(v => v is not null)
                 .Select(v => v!)
                 .ToList();
@@ -280,10 +307,26 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         int count;
         lock (_lock)
         {
-            var now= DateTime.UtcNow;
-            var expireditems = _cache.Select(kvp =>(kvp.Key, kvp.Value.GetOrExpire(now))).Where(i=>i.Item2.IsExpired).ToList();
-            expiredkeys = expireditems.Select(i => i.Key).ToHashSet(_comparer);
-            justexpiredKeys= expireditems.Where(i => i.Item2.IsJustExpired).Select(i => i.Key).ToList();
+            var now = DateTime.UtcNow;
+            expiredkeys = new HashSet<K>(_comparer);
+            justexpiredKeys = new List<K>();
+            foreach (var kvp in _cache)
+            {
+                switch (kvp.Value)
+                {
+                    case ValidItem<T> vi when vi.ExpireAt < now:
+                        if (vi.Value is IDisposable d) d.Dispose();
+                        _cache[kvp.Key] = new ExpiredItem();
+                        expiredkeys.Add(kvp.Key);
+                        justexpiredKeys.Add(kvp.Key);
+                        break;
+                    case ExpiredItem:
+                        expiredkeys.Add(kvp.Key);
+                        break;
+                    case JustExpiredItem:
+                        break; // no se almacena; defensivo
+                }
+            }
             count = _cache.Count;
         }
         // SD-4: la consulta a BD va FUERA del lock para no bloquear lectores/escritores.
@@ -299,7 +342,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
                 foreach (var value in res.Value!)
                 {
                     var key = _getKeyFn(value);
-                    _cache[key] = new InternalCacheItem(value, DateTime.UtcNow + _defaultExpiration);
+                    _cache[key] = new ValidItem<T>(value, DateTime.UtcNow + _defaultExpiration);
                     expiredkeys.Remove(key);
                 }
                 foreach (var expiredkey in expiredkeys)
@@ -312,39 +355,5 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         }
         OnCacheCleanUp(justexpiredKeys);
         return final;
-    }
-    
-    private record InternalCacheItem
-    {
-        private T? _value;
-        public DateTime ExpireAt { get; private set; }
-        public bool Expired(DateTime? now) => ExpireAt < (now ?? DateTime.UtcNow);
-        public InternalCacheItem(T? value, DateTime expireAt)
-        {
-            _value = value;
-            ExpireAt = expireAt;
-        }
-        public CacheItem<T> GetOrExpire(DateTime? now)
-        {
-            if (_value is null) return CacheItem<T>.ExpiredItem;
-            if (!Expired(now)) return CacheItem<T>.NotExpired(_value!);
-            if (_value is IDisposable d) d.Dispose();
-            _value = null;
-            return CacheItem<T>.JustExpiredItem;
-        }
-        public bool ForceExpiration()
-        {
-            if (_value == null) return false;
-            ExpireAt = DateTime.MinValue;
-            if (_value is IDisposable d) d.Dispose();
-            _value = null;
-            return true;
-        }
-        public static InternalCacheItem FactoryExpired() => new InternalCacheItem(null, DateTime.MinValue);
-
-        public T? GetNoExpire()
-        {
-            return _value;
-        }
     }
 }

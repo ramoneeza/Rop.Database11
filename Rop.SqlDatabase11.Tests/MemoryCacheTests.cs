@@ -29,10 +29,9 @@ public class MemoryCacheTests
 
         Assert.Equal(new[] { 1 }, expired);
         var item1 = cache.GetValueOrDefault(1);
-        Assert.NotNull(item1);
-        Assert.True(item1.IsExpired);
+        Assert.True(item1 is ExpiredItem);
         Assert.Null(cache.GetValueOrDefault(3));
-        Assert.False(cache.GetValueOrDefault(2)!.IsExpired);
+        Assert.True(cache.GetValueOrDefault(2) is ValidItem<ItemIntAuto>);
     }
 
     [Fact]
@@ -44,7 +43,7 @@ public class MemoryCacheTests
         var expired = cache.Expires();
 
         Assert.Empty(expired);
-        Assert.False(cache.GetValueOrDefault(1)!.IsExpired);
+        Assert.True(cache.GetValueOrDefault(1) is ValidItem<ItemIntAuto>);
     }
 
     [Fact]
@@ -57,8 +56,26 @@ public class MemoryCacheTests
         var expired = cache.Expires(new[] { 1, 2 });
 
         Assert.Equal(new[] { 1, 2 }, expired);
-        Assert.True(cache.GetValueOrDefault(1)!.IsExpired);
-        Assert.True(cache.GetValueOrDefault(2)!.IsExpired);
+        Assert.True(cache.GetValueOrDefault(1) is ExpiredItem);
+        Assert.True(cache.GetValueOrDefault(2) is ExpiredItem);
+    }
+
+    // U-2: TryGetValue devuelve el estado como union y transiciona al expirar:
+    // ValidItem -> JustExpiredItem (primer acceso tras expirar) -> ExpiredItem.
+    [Fact]
+    public void TryGetValue_Returns_States_And_Transitions_On_Expiry()
+    {
+        var cache = NewCache();
+        cache.Add(new ItemIntAuto { Id = 1, Name = "A", Quantity = 1 }, TimeSpan.FromMilliseconds(50));
+
+        Assert.True(cache.TryGetValue(1) is ValidItem<ItemIntAuto>);
+
+        Thread.Sleep(150); // deja pasar la expiracion
+
+        Assert.True(cache.TryGetValue(1) is JustExpiredItem);
+        Assert.True(cache.TryGetValue(1) is ExpiredItem);
+
+        Assert.Null(cache.TryGetValue(99)); // clave inexistente
     }
 
     // SD-6: un handler que lanza no debe impedir que los demás handlers se ejecuten
@@ -150,6 +167,11 @@ public class MemoryCacheTests
 
         release.Set();
         Assert.True(refresh.Wait(TimeSpan.FromSeconds(5)));
-        Assert.Equal("X", cache.GetValueOrDefault(9)!.Value!.Name);
+        var name = cache.GetValueOrDefault(9) switch
+        {
+            ValidItem<ItemIntAuto> vi => vi.Value.Name,
+            _ => throw new InvalidOperationException("se esperaba un item valido")
+        };
+        Assert.Equal("X", name);
     }
 }

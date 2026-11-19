@@ -289,14 +289,15 @@ namespace Rop.Database11.CacheRepository
             Check();
             // SD-4: lectura del cache con su lock interno; la recarga (BD) va fuera de locks.
             var r = Repository.GetValueOrDefault(key);
-            if (r is not null && !r.Expired) return r.Value!;
+            if (r is ValidItem<T> vi) return vi.Value;
             var r2 = IntGet(key);
             if (r2.IsFailedAndNotNull)
             {
                 // error real: mal menor devolviendo el valor expirado que quede en cache
+                // (paridad con r?.Value: tras expirar el valor ya no esta disponible)
                 error = r2.Error;
                 LastError = r2.Error;
-                return r?.Value;
+                return r is ValidItem<T> vi2 ? vi2.Value : default;
             }
             if (r2.IsFailed) return null; // no encontrado (NullError)
             Repository.Add(r2.Value!);
@@ -348,9 +349,9 @@ namespace Rop.Database11.CacheRepository
             foreach (var key in keys)
             {
                 var r = Repository.GetValueOrDefault(key);
-                if (r is not null && !r.Expired)
+                if (r is ValidItem<T> vi)
                 {
-                    res.Add(r.Value!);
+                    res.Add(vi.Value);
                     continue;
                 }
 
@@ -358,9 +359,10 @@ namespace Rop.Database11.CacheRepository
                 if (r2.IsFailedAndNotNull)
                 {
                     // error real: mal menor con el valor expirado si existe
+                    // (paridad con r?.Value: tras expirar el valor ya no esta disponible)
                     error ??= r2.Error;
                     LastError = r2.Error;
-                    if (r?.Value is not null) res.Add(r.Value);
+                    if (r is ValidItem<T> vi2) res.Add(vi2.Value);
                     continue;
                 }
                 if (r2.IsFailed) continue; // no encontrado (NullError) → saltar
@@ -424,6 +426,42 @@ namespace Rop.Database11.CacheRepository
 
 
     /// <summary>
+    /// Base class for a simple SQL repository that expires after a specified time with key of type int and with DTO.
+    /// </summary>
+    /// <typeparam name="T">Entity type (business model).</typeparam>
+    /// <typeparam name="D">DTO type (database table representation).</typeparam>
+    /// <param name="database">Database instance.</param>
+    /// <param name="defaultExpirationTime">Time before cache entries expire (default: 5 minutes).</param>
+    /// <param name="defaultcleantime">Interval at which the cache checks for expired entries (default: 10 minutes).</param>
+    public abstract class AbsSimpleCacheSqlIntRepository<T, D>(
+        Database database,
+        TimeSpan? defaultExpirationTime = null,
+        TimeSpan? defaultcleantime = null)
+        : AbsSimpleCacheSqlRepositoryK<T, D, int>(database, defaultExpirationTime, defaultcleantime)
+        where T : class
+        where D : class
+    {
+    }
+
+    /// <summary>
+    /// Base class for a simple SQL repository that expires after a specified time with key of type string and with DTO.
+    /// </summary>
+    /// <typeparam name="T">Entity type (business model).</typeparam>
+    /// <typeparam name="D">DTO type (database table representation).</typeparam>
+    /// <param name="database">Database instance.</param>
+    /// <param name="defaultExpirationTime">Time before cache entries expire (default: 5 minutes).</param>
+    /// <param name="defaultcleantime">Interval at which the cache checks for expired entries (default: 10 minutes).</param>
+    public abstract class AbsSimpleCacheSqlRepository<T, D>(
+        Database database,
+        TimeSpan? defaultExpirationTime = null,
+        TimeSpan? defaultcleantime = null)
+        : AbsSimpleCacheSqlRepositoryK<T, D, string>(database, defaultExpirationTime, defaultcleantime)
+        where T : class
+        where D : class
+    {
+    }
+
+    /// <summary>
     /// Base class for a simple SQL repository that expires after a specified time with key of type int and without DTO.
     /// </summary>
     /// <typeparam name="T">Entity type, used both as entity and DTO.</typeparam>
@@ -434,7 +472,7 @@ namespace Rop.Database11.CacheRepository
         Database database,
         TimeSpan? defaultExpirationTime = null,
         TimeSpan? defaultcleantime = null)
-        : AbsSimpleCacheSqlRepositoryK<T, T, int>(database, defaultExpirationTime, defaultcleantime) where T : class
+        : AbsSimpleCacheSqlIntRepository<T, T>(database, defaultExpirationTime, defaultcleantime) where T : class
     {
         /// <summary>
         /// Maps a DTO instance to its entity representation (identity mapping in this case).
@@ -455,7 +493,7 @@ namespace Rop.Database11.CacheRepository
         Database database,
         TimeSpan? defaultExpirationTime = null,
         TimeSpan? defaultcleantime = null)
-        : AbsSimpleCacheSqlRepositoryK<T, T, string>(database, defaultExpirationTime, defaultcleantime) where T : class
+        : AbsSimpleCacheSqlRepository<T, T>(database, defaultExpirationTime, defaultcleantime) where T : class
     {
         /// <summary>
         /// Maps a DTO instance to its entity representation (identity mapping in this case).

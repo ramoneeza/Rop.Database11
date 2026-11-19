@@ -8,7 +8,7 @@
 ## Refactorización C# 15 (según `Docs/01-mejoras-net11-csharp15.md`)
 
 - [x] U-1: `DeltaChanges` → union `EmptyDelta | TableDelta` aplicada el 2026-11-19 (con `IsEmpty`/`IsNewVersion`/`NoNewVersion`/`Changes`/`GetKeys*` como miembros de la union para minimizar el switch)
-- [ ] U-2: `CacheItem<T>` → union `CacheState<T>` (breaking público)
+- [x] U-2: `CacheItem<T>` → union `CacheState<T>` aplicada el 2026-11-19 (estado interno del cache sin flags; consumidores con pattern matching)
 - [ ] CA-1/CA-2: collection expression arguments en `MemoryCache` y listas con capacidad
 - [ ] EI-1/EI-2/EI-3: extension indexers en `IAbsSimpleSqlRepository`, `MemoryCache`, `RepositoryDictionary`, `Database`
 - [ ] CH-1: tipar el canal de error de `ICycleTask.PayLoad` (`string?` → jerarquía cerrada) si procede
@@ -21,3 +21,5 @@
 ## Rop.AbsDatabase11
 
 ## Rop.SqlDatabase11
+
+- [x] Riqueza de `CacheRepository` completada el 2026-11-19 (simples con DTO int/string; familia CT-free por diseño — la variante CT se eliminó)
