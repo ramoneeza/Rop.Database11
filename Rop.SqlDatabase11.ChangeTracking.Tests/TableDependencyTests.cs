@@ -6,6 +6,7 @@ using Rop.Dapper.ContribEx11;
 using Rop.Database11;
 using Rop.Database11.Repository;
 using Rop.Database11.Tracking;
+using Rop.Results9;
 using SqlDb = Rop.Database11.Database;
 
 namespace Rop.SqlDatabase11.ChangeTracking.Tests;
@@ -58,7 +59,7 @@ public class TableDependencyTests : IDisposable
         var id = (int)_connection.Insert(new CtItem { Name = "A", Quantity = 1 });
 
         // PayLoad no debe devolver error (devuelve el mensaje de excepcion si falla).
-        Assert.Null(dep.PayLoad());
+        Assert.False(dep.PayLoad().IsFailed);
 
         var delta = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(15));
         var change = Assert.Single(delta.Changes);
@@ -70,14 +71,16 @@ public class TableDependencyTests : IDisposable
     }
 
     [Fact]
-    public void PayLoad_Returns_Error_Message_On_Table_Without_CT()
+    public void PayLoad_Returns_Failed_Result_On_Table_Without_CT()
     {
+        // CH-1: el error operativo viaja como VoidResult fallido (Error),
+        // no como string.
         var dep = _db.GetTableDependency(typeof(CtNoTrackItem), ChangeTrackingPriority.Default);
 
         var error = dep.PayLoad();
 
-        Assert.NotNull(error);
-        Assert.Contains("change tracking", error, StringComparison.OrdinalIgnoreCase);
+        Assert.True(error.IsFailed);
+        Assert.Contains("change tracking", error.Error!.Value!, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -104,9 +107,9 @@ public class TableDependencyTests : IDisposable
         };
 
         var id = (int)_connection.Insert(new CtItem { Name = "A", Quantity = 1 });
-        Assert.Null(dep.PayLoad());
+        Assert.False(dep.PayLoad().IsFailed);
         _connection.Update(new CtItem { Id = id, Name = "A2", Quantity = 2 });
-        Assert.Null(dep.PayLoad());
+        Assert.False(dep.PayLoad().IsFailed);
 
         await tcs.Task.WaitAsync(TimeSpan.FromSeconds(15));
         lock (received)
@@ -129,14 +132,14 @@ public class TableDependencyTests : IDisposable
         dep.OnChanged += (_, _) => secondCalled.TrySetResult();
 
         var id = (int)_connection.Insert(new CtItem { Name = "A", Quantity = 1 });
-        Assert.Null(dep.PayLoad());
+        Assert.False(dep.PayLoad().IsFailed);
         await secondCalled.Task.WaitAsync(TimeSpan.FromSeconds(15));
 
         // El lector sigue vivo: un segundo delta llega a un tercer handler.
         var third = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         dep.OnChanged += (_, _) => third.TrySetResult();
         _connection.Update(new CtItem { Id = id, Name = "A2", Quantity = 2 });
-        Assert.Null(dep.PayLoad());
+        Assert.False(dep.PayLoad().IsFailed);
         await third.Task.WaitAsync(TimeSpan.FromSeconds(15));
     }
 
@@ -162,7 +165,7 @@ public class TableDependencyTests : IDisposable
 
         _connection.Execute("INSERT INTO [Order] ([Id], [User], [Quantity]) VALUES (1, 'A', 10)");
 
-        Assert.Null(dep.PayLoad());
+        Assert.False(dep.PayLoad().IsFailed);
         var delta = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(15));
         var change = Assert.Single(delta.Changes);
         Assert.Equal(ChangeOperation.Insert, change.Operation);
@@ -183,8 +186,8 @@ public class TableDependencyTests : IDisposable
         _connection.Insert(new CtItem { Name = "A", Quantity = 1 });
 
         var error = dep.PayLoad();
-        Assert.NotNull(error);
-        Assert.Contains("disposed", error);
+        Assert.True(error.IsFailed);
+        Assert.Contains("disposed", error.Error!.Value!);
 
         await Task.Delay(300);
         Assert.Equal(0, Volatile.Read(ref received));
@@ -233,7 +236,7 @@ public class TableDependencyTests : IDisposable
         repo.Dispose();
 
         Assert.Equal(0, HandlerCount(dep));
-        Assert.Null(dep.PayLoad()); // la dependencia sigue operativa
+        Assert.False(dep.PayLoad().IsFailed); // la dependencia sigue operativa
     }
 
     private static int HandlerCount(SqlTableDependency dep)

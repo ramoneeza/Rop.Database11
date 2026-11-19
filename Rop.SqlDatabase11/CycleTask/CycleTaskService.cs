@@ -72,9 +72,10 @@ public class CycleTaskService<K,T>:IDisposable where T: class,ICycleTask where K
         }
     }
     /// <summary>
-    /// Last error in the queue
+    /// Last error in the queue (CH-1: <see cref="Error"/> en lugar de string,
+    /// para conservar la excepción completa).
     /// </summary>
-    public string? LastError { get; private set; }
+    public Error? LastError { get; private set; }
     private async Task _runAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
@@ -86,10 +87,10 @@ public class CycleTaskService<K,T>:IDisposable where T: class,ICycleTask where K
                 if (!_queue.TryDequeueInTime(out var task)) continue;
                 var r = task.Execute(ct);
                 if (ct.IsCancellationRequested) break;
-                if (r!=null)
+                if (r.IsFailed)
                 {
-                    LastError=r;
-                    _logger.LogWarning("Cycle task PayLoad reported an error: {Error}", r);
+                    LastError=r.Error;
+                    _logger.LogWarning("Cycle task PayLoad reported an error: {Error}", r.Error);
                 }
                 _queue.Enqueue(task);
             }
@@ -100,7 +101,7 @@ public class CycleTaskService<K,T>:IDisposable where T: class,ICycleTask where K
             }
             catch (Exception ex)
             {
-                LastError = ex.Message;
+                LastError = new ExceptionError(ex);
                 _logger.LogError(ex, "CycleTaskService background loop error");
             }
         }

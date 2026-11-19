@@ -40,14 +40,14 @@ public class CycleTaskWrapper<T> where T: ICycleTask
     /// Executes the wrapped task when its next run time is due and reschedules it.
     /// </summary>
     /// <param name="ct">Optional cancellation token checked before executing.</param>
-    /// <returns>Error message if the payload failed, null on success or when not yet due.</returns>
-    public string? Execute(CancellationToken? ct = null)
+    /// <returns>A <see cref="VoidResult"/> indicating success (executed or not yet due) or the failure details.</returns>
+    public VoidResult Execute(CancellationToken? ct = null)
     {
-        if (ct?.IsCancellationRequested ?? false) return null;
+        if (ct?.IsCancellationRequested ?? false) return VoidResult.Ok;
         // SD-14: instantes UTC en todo el scheduler (antes se mezclaban
         // DateTimeOffset.Now y DateTime.Now).
         var now = DateTimeOffset.UtcNow;
-        if (now < NextRun) return null;
+        if (now < NextRun) return VoidResult.Ok;
         LastRun = now;
         try
         {
@@ -61,7 +61,7 @@ public class CycleTaskWrapper<T> where T: ICycleTask
         }
         catch (Exception ex)
         {
-            return ex.Message;
+            return Error.Exception(ex);
         }
         finally
         {

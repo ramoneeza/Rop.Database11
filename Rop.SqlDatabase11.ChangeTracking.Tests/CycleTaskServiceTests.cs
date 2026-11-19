@@ -1,4 +1,5 @@
 using Rop.Database11.CycleTask;
+using Rop.Results9;
 
 namespace Rop.SqlDatabase11.ChangeTracking.Tests;
 
@@ -14,21 +15,21 @@ public class CycleTaskServiceTests
         public string Key { get; }
         public TimeSpan Interval => TimeSpan.FromSeconds(60);
         public FakeTask(string key) => Key = key;
-        public string? PayLoad(CancellationToken cancellationToken = default) => null;
+        public VoidResult PayLoad(CancellationToken cancellationToken = default) => VoidResult.Ok;
     }
 
     private sealed class DisposableFakeTask : ICycleTask, IDisposable
     {
         public TimeSpan Interval => TimeSpan.FromSeconds(60);
         public bool IsDisposed { get; private set; }
-        public string? PayLoad(CancellationToken cancellationToken = default) => null;
+        public VoidResult PayLoad(CancellationToken cancellationToken = default) => VoidResult.Ok;
         public void Dispose() => IsDisposed = true;
     }
 
     private sealed class CancellingFakeTask : ICycleTask
     {
         public TimeSpan Interval => TimeSpan.FromSeconds(60);
-        public string? PayLoad(CancellationToken cancellationToken = default) => throw new OperationCanceledException(cancellationToken);
+        public VoidResult PayLoad(CancellationToken cancellationToken = default) => throw new OperationCanceledException(cancellationToken);
     }
 
     [Fact]
@@ -94,11 +95,12 @@ public class CycleTaskServiceTests
     }
 
     [Fact]
-    public void Wrapper_Returns_Null_When_Token_Cancelled()
+    public void Wrapper_Returns_Success_When_Token_Cancelled()
     {
+        // CH-1: con VoidResult el "no ejecutado" ya no es null, es éxito.
         var wrapper = new CycleTaskWrapper<FakeTask>(new FakeTask("k"));
 
-        Assert.Null(wrapper.Execute(new CancellationToken(true)));
+        Assert.False(wrapper.Execute(new CancellationToken(true)).IsFailed);
     }
 
     [Fact]
@@ -108,7 +110,7 @@ public class CycleTaskServiceTests
         // DateTimeOffset.Now y DateTime.Now).
         var wrapper = new CycleTaskWrapper<FakeTask>(new FakeTask("k"));
 
-        Assert.Null(wrapper.Execute());
+        Assert.False(wrapper.Execute().IsFailed);
 
         Assert.Equal(TimeSpan.Zero, wrapper.LastRun.Offset);
         Assert.Equal(TimeSpan.Zero, wrapper.NextRun.Offset);

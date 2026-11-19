@@ -13,6 +13,6 @@ public interface ICycleTask
     /// Executes the periodic work of the cycle task.
     /// </summary>
     /// <param name="cancellationToken">Cancellation token checked before executing; implementations should throw <see cref="OperationCanceledException"/> when cancelled.</param>
-    /// <returns>Error message if the work failed, null on success.</returns>
-    string? PayLoad(CancellationToken cancellationToken = default);
+    /// <returns>A <see cref="VoidResult"/> indicating success or the failure details (CH-1: error operativo tipado con Result, en lugar de la convención "null = éxito").</returns>
+    VoidResult PayLoad(CancellationToken cancellationToken = default);
 }

@@ -67,10 +67,10 @@ namespace Rop.Database11
         /// to stop cleanly).
         /// </summary>
         /// <param name="cancellationToken">Cancellation token checked before querying.</param>
-        /// <returns>Error message if the payload failed, null on success.</returns>
-        public string? PayLoad(CancellationToken cancellationToken = default)
+        /// <returns>A <see cref="VoidResult"/> indicating success or the failure details.</returns>
+        public VoidResult PayLoad(CancellationToken cancellationToken = default)
         {
-            if (_disposed) return "SqlTableDependency is disposed";
+            if (_disposed) return Error.Fail("SqlTableDependency is disposed");
             cancellationToken.ThrowIfCancellationRequested();
             using var sqlConnection = Database.FactoryConnection();
             try
@@ -90,7 +90,7 @@ namespace Rop.Database11
                     };
                     if (!deltaChanges.IsEmpty) _sendChanges(deltaChanges);
                 }
-                return null;
+                return VoidResult.Ok;
             }
             catch (OperationCanceledException)
             {
@@ -101,7 +101,7 @@ namespace Rop.Database11
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Change tracking PayLoad failed for table {Table}", TableDescription.TableName);
-                return ex.Message;
+                return Error.Exception(ex);
             }
             finally
             {
@@ -112,7 +112,7 @@ namespace Rop.Database11
         /// <summary>
         /// Completes the change channel: the background reader delivers the
         /// remaining deltas and exits. The dependency cannot be used afterwards
-        /// (PayLoad returns an error message).
+        /// (PayLoad returns a failed result).
         /// </summary>
         public void Dispose()
         {

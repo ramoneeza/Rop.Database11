@@ -11,7 +11,7 @@
 - [x] U-2: `CacheItem<T>` → union `CacheState<T>` aplicada el 2026-11-19 (estado interno del cache sin flags; consumidores con pattern matching)
 - [ ] CA-1/CA-2: collection expression arguments en `MemoryCache` y listas con capacidad
 - [ ] EI-1/EI-2/EI-3: extension indexers en `IAbsSimpleSqlRepository`, `MemoryCache`, `RepositoryDictionary`, `Database`
-- [ ] CH-1: tipar el canal de error de `ICycleTask.PayLoad` (`string?` → jerarquía cerrada) si procede
+- [x] CH-1: canal de error de `ICycleTask.PayLoad` tipado con `VoidResult`/`Error` (2026-11-19; decisión: reutilizar Rop.Results9 en lugar de una union propia)
 - [ ] Labeled break/continue cuando aparezcan bucles anidados (batching, procesamiento de deltas)
 
 ## CI-CD
