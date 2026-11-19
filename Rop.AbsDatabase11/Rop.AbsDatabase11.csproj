@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+	  <RootNamespace>Rop.Database</RootNamespace>
+	  <!-- Icon -->
+	  <PackageIcon>icon.png</PackageIcon>
+	  <!-- Package Metadata -->
+	  <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	  <PackageId>Rop.AbsDatabase11</PackageId>
+	  <Authors>Ramon Ordiales Plaza</Authors>
+	  <Company>Ramon Ordiales Plaza</Company>
+	  <Version>1.0.2</Version>
+	  <Product>Rop.Database11</Product>
+	  <Description>Abstract database layer for Rop.Database11 suite with Unit of Work pattern, transaction management, and connection pooling</Description>
+	  
+	  <!-- License -->
+	  <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+	  <NugetUrl>https://api.nuget.org/v3/index.json</NugetUrl>
+	  <RepositoryUrl>https://github.com/ramoneeza/Rop.Database11</RepositoryUrl>
+	  <RepositoryType>git</RepositoryType>
+	  <PackageProjectUrl>https://github.com/ramoneeza/Rop.Database11</PackageProjectUrl>
+	  
+	  <!-- Documentation -->
+	  <GenerateDocumentationFile>True</GenerateDocumentationFile>
+	  <PackageReadmeFile>Readme.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Dapper.Contrib" Version="2.0.78" />
+    <PackageReference Include="Rop.Results9" Version="1.2.3" />
+  </ItemGroup>
+	<ItemGroup>
+		<PackageReference Include="Rop.Dapper.ContribEx11" Version="1.0.0" />
+	</ItemGroup>
+	<ItemGroup>
+		<None Include="Readme.md" Pack="true" PackagePath="\" /> 
+		<None Include="icon.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
+</Project>

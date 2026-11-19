@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net11.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+	  <RootNamespace>Rop.Database11</RootNamespace>
+	  <!-- Icon -->
+	  <PackageIcon>icon.png</PackageIcon>
+	  <!-- Package Metadata -->
+	  <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+	  <PackageId>Rop.SqlDatabase11</PackageId>
+	  <Authors>Ramon Ordiales Plaza</Authors>
+	  <Company>Ramon Ordiales Plaza</Company>
+	  <Product>Rop.Database11</Product>
+	  <Version>1.0.12</Version>
+	  <Description>SQL Server implementation for Rop.Database11 with Change Tracking, Repository patterns, Cache, and advanced features</Description>
+	  
+	  <!-- License -->
+	  <PackageLicenseExpression>GPL-3.0-or-later</PackageLicenseExpression>
+	  <Copyright>2025 Ramon Ordiales Plaza</Copyright>
+	  
+	  <!-- Repository -->
+	  <NugetUrl>https://api.nuget.org/v3/index.json</NugetUrl>
+	  <RepositoryUrl>https://github.com/ramoneeza/Rop.Database11</RepositoryUrl>
+	  <RepositoryType>git</RepositoryType>
+	  <PackageProjectUrl>https://github.com/ramoneeza/Rop.Database11</PackageProjectUrl>
+	  
+	  <!-- Documentation -->
+	  <GenerateDocumentationFile>True</GenerateDocumentationFile>
+	  <PackageReadmeFile>Readme.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.1.2" />
+    <PackageReference Include="System.Runtime.Caching" Version="11.0.0" />
+  </ItemGroup>
+	<ItemGroup>
+		<None Include="Readme.md" Pack="true" PackagePath="\" /> 
+		<None Include="icon.png" Pack="true" PackagePath="\" />
+	</ItemGroup>
+	<ItemGroup>
+	  <ProjectReference Include="..\Rop.AbsDatabase11\Rop.AbsDatabase11.csproj" />
+	</ItemGroup>
+</Project>
