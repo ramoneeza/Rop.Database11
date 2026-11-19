@@ -13,8 +13,6 @@
  */
 
 
-using System.Collections;
-using System.Data;
 using System.Data.Common;
 
 namespace Rop.Database;
@@ -40,6 +38,14 @@ public abstract partial class AbsDatabase
     /// Main Database Name
     /// </summary>
     public string MainDatabaseName { get; } = "";
+
+    /// <summary>
+    /// Política de reintentos ante errores transitorios (deadlock 1205, timeouts, fallos de conexión...).
+    /// Afecta a todas las operaciones que abren conexión a través de esta instancia
+    /// (UnitOfWork, Query, Execute, Insert/Update/Delete...). Por defecto 3 reintentos con
+    /// backoff 100/250/500 ms. Usar <see cref="RetryPolicy.NoRetry"/> para desactivarla.
+    /// </summary>
+    public RetryPolicy RetryPolicy { get; set; } = RetryPolicy.Default;
 
     /// <summary>
     /// Constructor with connection string.
@@ -77,8 +83,8 @@ public abstract partial class AbsDatabase
     /// <returns>Result with the inserted key or affected rows as integer.</returns>
     public Result<int> Insert<T>(T item) where T:class
     {
-        var res = UnitOfWorkSingle(conn => (int) conn.Insert(item));
-        return res;
+        // AB-8: write transaccional para que el reintento ante errores transitorios sea seguro
+        return UnitOfWorkSingle<int>((conn, tr) => (int)conn.Insert(item, tr));
     }
     /// <summary>
     /// Update Item
@@ -88,7 +94,7 @@ public abstract partial class AbsDatabase
     /// <returns>Result indicating whether the update succeeded.</returns>
     public Result<bool> Update<T>(T item) where T:class
     {
-        return UnitOfWorkSingle<bool>(conn => conn.Update(item));
+        return UnitOfWorkSingle<bool>((conn, tr) => conn.Update(item, tr));
     }
     /// <summary>
     /// InsertOrUpdate Item
@@ -98,7 +104,7 @@ public abstract partial class AbsDatabase
     /// <returns>Result with the key or affected rows as integer.</returns>
     public Result<int> InsertOrUpdate<T>(T item) where T:class
     {
-        return UnitOfWorkSingle(conn => conn.InsertOrUpdate(item));
+        return UnitOfWorkSingle<int>((conn, tr) => conn.InsertOrUpdate(item, tr));
     }
     /// <summary>
     /// Query Items
@@ -143,7 +149,7 @@ public abstract partial class AbsDatabase
     /// <returns>Result with the number of affected rows.</returns>
     public Result<int> Execute(string query, object? param = null)
     {
-        return UnitOfWorkSingle(conn => conn.Execute(query, param));
+        return UnitOfWorkSingle<int>((conn, tr) => conn.Execute(query, param, tr));
     }
     /// <summary>
     /// Execute Scalar Query
@@ -296,7 +302,7 @@ public abstract partial class AbsDatabase
         
     public Task<Result<int>> ExecuteAsync(string query, object? param = null, CancellationToken cancellationToken = default)
     {
-        return UnitOfWorkSingleAsync(conn => conn.ExecuteAsync(query, param), cancellationToken);
+        return UnitOfWorkSingleAsync<int>((conn, tr) => conn.ExecuteAsync(query, param, tr), cancellationToken);
     }
         /// <summary>
         /// Execute Scalar Query Async
@@ -354,7 +360,7 @@ public abstract partial class AbsDatabase
     /// <returns>Result indicating whether the deletion succeeded.</returns>
     public Result<bool> Delete<T>(T item) where T : class
     {
-        return UnitOfWorkSingle<bool>(c=>c.Delete(item));
+        return UnitOfWorkSingle<bool>((conn, tr) => conn.Delete(item, tr));
     }
 
     /// <summary>
@@ -367,7 +373,8 @@ public abstract partial class AbsDatabase
         
     public Task<Result<bool>> DeleteAsync<T>(T item, CancellationToken cancellationToken = default) where T : class
     {
-        return UnitOfWorkSingleAsync<bool>(conn => conn.DeleteAsync(item), cancellationToken);
+        // Dapper.Contrib 2.0.78: DeleteAsync no acepta CancellationToken (limitacion documentada en AB-7)
+        return UnitOfWorkSingleAsync<bool>((conn, tr) => conn.DeleteAsync(item, tr, null), cancellationToken);
     }
     /// <summary>
     /// Delete Item by Key
@@ -421,7 +428,7 @@ public abstract partial class AbsDatabase
     /// <returns>Result indicating whether the deletion succeeded.</returns>
     public Result<bool> Delete<K,T>(K key) where T : class where K: notnull
     {
-        return UnitOfWorkSingle<bool>(conn =>conn.DeleteByKey<T>(key));
+        return UnitOfWorkSingle<bool>((conn, tr) => conn.DeleteByKey<T>(key, tr));
     }
     /// <summary>
     /// Delete Item by Key Async
@@ -433,7 +440,7 @@ public abstract partial class AbsDatabase
     /// <returns>Task result indicating whether the deletion succeeded.</returns>
     public async Task<Result<bool>> DeleteAsync<K,T>(K key, CancellationToken cancellationToken = default) where T : class where K : notnull
     {
-        return await UnitOfWorkSingleAsync<bool>(conn =>conn.DeleteByKeyAsync<T>(key), cancellationToken);
+        return await UnitOfWorkSingleAsync<bool>((conn, tr) => conn.DeleteByKeyAsync<T>(key, tr), cancellationToken);
     }
 
     
@@ -448,7 +455,7 @@ public abstract partial class AbsDatabase
     /// <returns>Result indicating whether exactly one row was updated.</returns>
     public Result<bool> UpdateIdValue<DB, T>(object id, T value, string field)
     {
-        return UnitOfWorkSingle<bool>(conn=>conn.UpdateIdValue<DB, T>(id,value, field));
+        return UnitOfWorkSingle<bool>((conn, tr) => conn.UpdateIdValue<DB, T>(id, value, field, tr));
     }
     /// <summary>
     /// Update Single Value by Id
@@ -461,7 +468,7 @@ public abstract partial class AbsDatabase
         
     public Result<bool> UpdateIdValue<DB, T>((object id, T value) value, string field)
     {
-        return UnitOfWorkSingle<bool>(conn=>conn.UpdateIdValue<DB, T>(value.id,value.value, field));
+        return UnitOfWorkSingle<bool>((conn, tr) => conn.UpdateIdValue<DB, T>(value.id, value.value, field, tr));
     }
     
     

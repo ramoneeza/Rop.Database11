@@ -1,5 +1,3 @@
-using System.Collections;
-
 namespace Rop.Database;
 
 public partial class AbsDatabase
@@ -12,7 +10,7 @@ public partial class AbsDatabase
     /// <param name="id">Valor de la clave parcial a eliminar.</param>
     /// <returns>Resultado con el número de filas afectadas.</returns>
     public Result<int> DeleteByPartialKey<T>(object id) where T : class
-        => UnitOfWorkSingle(conn => conn.DeleteByPartialKey<T>(id));
+        => UnitOfWorkSingle((conn, tr) => conn.DeleteByPartialKey<T>(id, tr));
 
     /// <summary>
     /// Elimina filas (async) de la tabla asociada al tipo <typeparamref name="T"/> usando una clave parcial.
@@ -22,7 +20,7 @@ public partial class AbsDatabase
     /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
     /// <returns>Resultado asíncrono con el número de filas afectadas.</returns>
     public Task<Result<int>> DeleteByPartialKeyAsync<T>(object id, CancellationToken cancellationToken = default) where T : class
-        => UnitOfWorkSingleAsync(conn => conn.DeleteByPartialKeyAsync<T>(id), cancellationToken);
+        => UnitOfWorkSingleAsync((conn, tr) => conn.DeleteByPartialKeyAsync<T>(id, tr), cancellationToken);
 
     // Insert no key attributes
     /// <summary>
@@ -32,7 +30,7 @@ public partial class AbsDatabase
     /// <param name="item">Entidad a insertar.</param>
     /// <returns>Resultado con el número de filas afectadas.</returns>
     public Result<int> InsertNoKeyAtt<T>(T item) where T : class
-        => UnitOfWorkSingle(conn => conn.InsertNoKeyAtt<T>(item));
+        => UnitOfWorkSingle((conn, tr) => conn.InsertNoKeyAtt<T>(item, tr));
 
     /// <summary>
     /// Inserta una entidad (async) omitiendo atributos de clave.
@@ -42,7 +40,7 @@ public partial class AbsDatabase
     /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
     /// <returns>Resultado asíncrono con el número de filas afectadas.</returns>
     public Task<Result<int>> InsertNoKeyAttAsync<T>(T item, CancellationToken cancellationToken = default) where T : class
-        => UnitOfWorkSingleAsync<int>(conn => conn.InsertNoKeyAttAsync<T>(item), cancellationToken);
+        => UnitOfWorkSingleAsync<int>((conn, tr) => conn.InsertNoKeyAttAsync<T>(item, tr), cancellationToken);
 
     // Insert or update with MERGE
     /// <summary>
@@ -52,7 +50,7 @@ public partial class AbsDatabase
     /// <param name="item">Entidad a insertar o actualizar.</param>
     /// <returns>Resultado con la clave o número de filas afectadas según la implementación.</returns>
     public Result<int> InsertOrUpdateMerge<T>(T item) where T : class
-        => UnitOfWorkSingle(conn => conn.InsertOrUpdateMerge<T>(item));
+        => UnitOfWorkSingle((conn, tr) => conn.InsertOrUpdateMerge<T>(item, tr));
 
     /// <summary>
     /// Inserta o actualiza una entidad usando MERGE (async).
@@ -62,7 +60,7 @@ public partial class AbsDatabase
     /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
     /// <returns>Resultado asíncrono con la clave o número de filas afectadas según la implementación.</returns>
     public Task<Result<int>> InsertOrUpdateMergeAsync<T>(T item, CancellationToken cancellationToken = default) where T : class
-        => UnitOfWorkSingleAsync(conn => conn.InsertOrUpdateMergeAsync<T>(item), cancellationToken);
+        => UnitOfWorkSingleAsync<int>((conn, tr) => conn.InsertOrUpdateMergeAsync<T>(item, tr), cancellationToken);
 
     // InsertOrUpdatePartial
     /// <summary>
@@ -103,7 +101,7 @@ public partial class AbsDatabase
     /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
     /// <returns>Resultado asíncrono con true si se actualizó exactamente una fila.</returns>
     public Task<Result<bool>> UpdateIdValueAsync<DB, T>(object id, T value, string field, CancellationToken cancellationToken = default)
-        => UnitOfWorkSingleAsync<bool>(conn => conn.UpdateIdValueAsync<DB, T>(id, value, field), cancellationToken);
+        => UnitOfWorkSingleAsync<bool>((conn, tr) => conn.UpdateIdValueAsync<DB, T>(id, value, field, tr), cancellationToken);
 
     // GetPartial / GetPartial2
     /// <summary>

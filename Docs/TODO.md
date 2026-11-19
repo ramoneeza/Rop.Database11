@@ -3,7 +3,7 @@
 ## Decisiones pendientes
 
 - [ ] **AB-3**: decidir sobre `ExtractConn` virtual llamada desde el constructor base (`Rop.AbsDatabase11/AbsDatabase.cs:53, 62`) — verificar uso real en entorno antes de hacerla no virtual o perezosa
-- [ ] **AB-8**: decidir la política de retry ante fallos transitorios (propuesta: errores 1205/-2, 3 intentos, backoff 100→250ms, configurable por instancia, Result fallido al agotar)
+- [x] **AB-8**: política de retry ante fallos transitorios implementada el 2026-11-19 (`RetryPolicy` en AbsDatabase11; writes transaccionales; PayLoad sin retry por decisión)
 
 ## Refactorización C# 15 (según `Docs/01-mejoras-net11-csharp15.md`)
 

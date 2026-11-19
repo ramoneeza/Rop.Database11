@@ -1,5 +1,4 @@
-﻿using System.Data;
-using System.Data.Common;
+﻿using System.Data.Common;
 using System.Diagnostics;
 using System.Runtime.ExceptionServices;
 
@@ -82,6 +81,21 @@ public partial class AbsDatabase
             return Error.Exception(new Exception($"Error rolling back transaction. Original exception: {ex.Value}. Rollback exception: {e.Message}", e));
         }
     }
+    // AB-8: rollback "silencioso" cuando se va a reintentar la operación con una
+    // conexión/transacción nuevas: el fallo del rollback no debe impedir el reintento.
+    private static void _silentRollBack(DbTransaction tr)
+    {
+        try { tr.Rollback(); } catch { /* se ignora: la conexión está condenada y se reintenta con una nueva */ }
+    }
+    private static async Task _silentRollBackAsync(DbTransaction tr)
+    {
+        try { await tr.RollbackAsync(); } catch { /* se ignora: la conexión está condenada y se reintenta con una nueva */ }
+    }
+
+    // AB-8: los _catch convierten las excepciones en Result fallido, PERO relanzan
+    // las transitorias para que el core de UnitOfWork decida si reintenta
+    // (con el número de intento) o desiste. Así la clasificación transitoria
+    // no se pierde en el envoltorio.
     private Result<T> _catch<T>(DbConnection conn,DbTransaction tr, Func<DbConnection, DbTransaction, T> funcion)
     {
         try
@@ -91,6 +105,7 @@ public partial class AbsDatabase
         }
         catch (Exception e)
         {
+            if (RetryPolicy.IsTransientError(e)) throw;
             return Error.Exception(e);
         }
     }
@@ -104,6 +119,7 @@ public partial class AbsDatabase
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
+            if (RetryPolicy.IsTransientError(e)) throw;
             return Error.Exception(e);
         }
     }
@@ -118,6 +134,7 @@ public partial class AbsDatabase
         }
         catch (Exception e)
         {
+            if (RetryPolicy.IsTransientError(e)) throw;
             return Error.Exception(e);
         }
     }
@@ -130,6 +147,7 @@ public partial class AbsDatabase
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
+            if (RetryPolicy.IsTransientError(e)) throw;
             return Error.Exception(e);
         }
     }
@@ -142,6 +160,7 @@ public partial class AbsDatabase
         }
         catch (Exception e)
         {
+            if (RetryPolicy.IsTransientError(e)) throw;
             return Error.Exception(e);
         }
     }
@@ -154,6 +173,7 @@ public partial class AbsDatabase
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
+            if (RetryPolicy.IsTransientError(e)) throw;
             return Error.Exception(e);
         }
     }
@@ -168,6 +188,7 @@ public partial class AbsDatabase
         }
         catch (Exception e)
         {
+            if (RetryPolicy.IsTransientError(e)) throw;
             return Error.Exception(e);
         }
     }
@@ -180,6 +201,7 @@ public partial class AbsDatabase
         }
         catch (Exception e) when (!ct.IsCancellationRequested)
         {
+            if (RetryPolicy.IsTransientError(e)) throw;
             return Error.Exception(e);
         }
     }
@@ -189,54 +211,95 @@ public partial class AbsDatabase
 
     private TR _UnitOfWorkWithTrCore<TR>(Func<DbConnection, DbTransaction, TR> funcion, Func<Error, TR> onFailed) where TR : AbsResult
     {
-        try
+        // AB-8: reintento ante errores transitorios. Cada intento usa conexión y
+        // transacción NUEVAS; un Result fallido (error de negocio) no se reintenta.
+        var policy = RetryPolicy;
+        var attempt = 0;
+        while (true)
         {
-            using var conn = FactoryConnection();
+            attempt++;
             try
             {
-                conn.Open();
-                using var tr = conn.BeginTransaction();
+                using var conn = FactoryConnection();
                 try
                 {
-                    var res = funcion(conn, tr);
-                    if (res.IsFailed) return onFailed(_tryRollBack(tr, res.Error!));
-                    tr.Commit();
-                    return res;
+                    conn.Open();
+                    using var tr = conn.BeginTransaction();
+                    try
+                    {
+                        var res = funcion(conn, tr);
+                        if (res.IsFailed) return onFailed(_tryRollBack(tr, res.Error!));
+                        tr.Commit();
+                        return res;
+                    }
+                    catch (Exception ex)
+                    {
+                        if (policy.CanRetry(ex, attempt))
+                        {
+                            _silentRollBack(tr);
+                            Thread.Sleep(policy.DelayFor(attempt));
+                            continue;
+                        }
+                        return onFailed(_tryRollBack(tr, Error.Exception(ex)));
+                    }
                 }
-                catch (Exception ex)
+                finally
                 {
-                    return onFailed(_tryRollBack(tr, Error.Exception(ex)));
+                    conn.Close();
                 }
             }
-            finally
+            catch (Exception ex)
             {
-                conn.Close();
+                if (policy.CanRetry(ex, attempt))
+                {
+                    Thread.Sleep(policy.DelayFor(attempt));
+                    continue;
+                }
+                return onFailed(Error.Exception(ex));
             }
-        }
-        catch (Exception ex)
-        {
-            return onFailed(Error.Exception(ex));
         }
     }
 
     private TR _UnitOfWorkNoTrCore<TR>(Func<DbConnection, TR> funcion, Func<Error, TR> onFailed) where TR : AbsResult
     {
-        try
+        // AB-8: reintento ante errores transitorios (lecturas; los writes internos
+        // van por la ruta transaccional). Cada intento usa una conexión NUEVA.
+        var policy = RetryPolicy;
+        var attempt = 0;
+        while (true)
         {
-            using var conn = FactoryConnection();
-            conn.Open();
+            attempt++;
             try
             {
-                return funcion(conn);
+                using var conn = FactoryConnection();
+                conn.Open();
+                try
+                {
+                    return funcion(conn);
+                }
+                catch (Exception ex)
+                {
+                    if (policy.CanRetry(ex, attempt))
+                    {
+                        Thread.Sleep(policy.DelayFor(attempt));
+                        continue;
+                    }
+                    return onFailed(Error.Exception(ex));
+                }
+                finally
+                {
+                    conn.Close();
+                }
             }
-            finally
+            catch (Exception ex)
             {
-                conn.Close();
+                if (policy.CanRetry(ex, attempt))
+                {
+                    Thread.Sleep(policy.DelayFor(attempt));
+                    continue;
+                }
+                return onFailed(Error.Exception(ex));
             }
-        }
-        catch (Exception ex)
-        {
-            return onFailed(Error.Exception(ex));
         }
     }
 
@@ -322,44 +385,64 @@ public partial class AbsDatabase
 
     private async Task<TR> _UnitOfWorkWithTrCoreAsync<TR>(Func<DbConnection, DbTransaction, CancellationToken, Task<TR>> funcion, Func<Error, TR> onFailed, CancellationToken ct) where TR : AbsResult
     {
-        try
+        // AB-8: reintento ante errores transitorios. Cada intento usa conexión y
+        // transacción NUEVAS; un Result fallido (error de negocio) no se reintenta.
+        // La cancelación tiene prioridad sobre el reintento.
+        var policy = RetryPolicy;
+        var attempt = 0;
+        while (true)
         {
-            await using var conn = FactoryConnection();
-            await conn.OpenAsync(ct);
+            attempt++;
             try
             {
-                await using var tr = await conn.BeginTransactionAsync(ct);
+                await using var conn = FactoryConnection();
+                await conn.OpenAsync(ct);
                 try
                 {
-                    var res = await funcion(conn, tr, ct);
-                    if (res.IsFailed) return onFailed(await _tryRollBackAsync(tr, res.Error!));
-                    // Commit sin token: si se cancelara durante el commit el resultado quedaría indeterminado.
-                    await tr.CommitAsync();
-                    return res;
+                    await using var tr = await conn.BeginTransactionAsync(ct);
+                    try
+                    {
+                        var res = await funcion(conn, tr, ct);
+                        if (res.IsFailed) return onFailed(await _tryRollBackAsync(tr, res.Error!));
+                        // Commit sin token: si se cancelara durante el commit el resultado quedaría indeterminado.
+                        await tr.CommitAsync();
+                        return res;
+                    }
+                    catch (Exception ex) when (ct.IsCancellationRequested)
+                    {
+                        try { await tr.RollbackAsync(); }
+                        catch (Exception rbex) { Debug.WriteLine($"Rollback fallido tras cancelación: {rbex.Message}"); }
+                        throw _toCancellation(ex, ct);
+                    }
+                    catch (Exception ex)
+                    {
+                        if (policy.CanRetry(ex, attempt))
+                        {
+                            await _silentRollBackAsync(tr);
+                            await Task.Delay(policy.DelayFor(attempt), ct);
+                            continue;
+                        }
+                        return onFailed(await _tryRollBackAsync(tr, Error.Exception(ex)));
+                    }
                 }
-                catch (Exception ex) when (ct.IsCancellationRequested)
+                finally
                 {
-                    try { await tr.RollbackAsync(); }
-                    catch (Exception rbex) { Debug.WriteLine($"Rollback fallido tras cancelación: {rbex.Message}"); }
-                    throw _toCancellation(ex, ct);
-                }
-                catch (Exception ex)
-                {
-                    return onFailed(await _tryRollBackAsync(tr, Error.Exception(ex)));
+                    await conn.CloseAsync();
                 }
             }
-            finally
+            catch (Exception ex) when (ct.IsCancellationRequested)
             {
-                await conn.CloseAsync();
+                throw _toCancellation(ex, ct);
             }
-        }
-        catch (Exception ex) when (ct.IsCancellationRequested)
-        {
-            throw _toCancellation(ex, ct);
-        }
-        catch (Exception ex)
-        {
-            return onFailed(Error.Exception(ex));
+            catch (Exception ex)
+            {
+                if (policy.CanRetry(ex, attempt))
+                {
+                    await Task.Delay(policy.DelayFor(attempt), ct);
+                    continue;
+                }
+                return onFailed(Error.Exception(ex));
+            }
         }
     }
 
@@ -415,13 +498,39 @@ public partial class AbsDatabase
 
     private async Task<TR> _UnitOfWorkNoTrCoreAsync<TR>(Func<DbConnection, CancellationToken, Task<TR>> funcion, Func<Error, TR> onFailed, CancellationToken ct) where TR : AbsResult
     {
-        try
+        // AB-8: reintento ante errores transitorios (lecturas; los writes internos
+        // van por la ruta transaccional). Cada intento usa una conexión NUEVA.
+        // La cancelación tiene prioridad sobre el reintento.
+        var policy = RetryPolicy;
+        var attempt = 0;
+        while (true)
         {
-            await using var conn = FactoryConnection();
-            await conn.OpenAsync(ct);
+            attempt++;
             try
             {
-                return await funcion(conn, ct);
+                await using var conn = FactoryConnection();
+                await conn.OpenAsync(ct);
+                try
+                {
+                    return await funcion(conn, ct);
+                }
+                catch (Exception ex) when (ct.IsCancellationRequested)
+                {
+                    throw _toCancellation(ex, ct);
+                }
+                catch (Exception ex)
+                {
+                    if (policy.CanRetry(ex, attempt))
+                    {
+                        await Task.Delay(policy.DelayFor(attempt), ct);
+                        continue;
+                    }
+                    return onFailed(Error.Exception(ex));
+                }
+                finally
+                {
+                    await conn.CloseAsync();
+                }
             }
             catch (Exception ex) when (ct.IsCancellationRequested)
             {
@@ -429,20 +538,13 @@ public partial class AbsDatabase
             }
             catch (Exception ex)
             {
+                if (policy.CanRetry(ex, attempt))
+                {
+                    await Task.Delay(policy.DelayFor(attempt), ct);
+                    continue;
+                }
                 return onFailed(Error.Exception(ex));
             }
-            finally
-            {
-                await conn.CloseAsync();
-            }
-        }
-        catch (Exception ex) when (ct.IsCancellationRequested)
-        {
-            throw _toCancellation(ex, ct);
-        }
-        catch (Exception ex)
-        {
-            return onFailed(Error.Exception(ex));
         }
     }
 
