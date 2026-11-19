@@ -31,6 +31,8 @@ Todos los cambios relevantes de documentación y arquitectura de `Rop.Database11
 
 - Riqueza de `CacheRepository` completada: `AbsSimpleCacheSqlIntRepository<T,D>` y `AbsSimpleCacheSqlRepository<T,D>` (simples con DTO, claves int/string). Tests: 2 nuevos en `CacheRepositoryTests` (interfaces y claves DTO int/string).
 
+- Nueva carpeta `CachePartialKeyRepository` (repositorios parciales con cache para tablas SIN change tracking): `AbsSimpleCacheSqlPartialRepositoryK<T,D,K>` (agrupa por primera clave parcial en `PartialBlock` y cachea con TTL) + 4 especializaciones (`AbsSimpleCacheSqlPartialIntRepository<T,D>`, `AbsSimpleCacheSqlPartialRepository<T,D>`, `AbsSimpleCacheSqlPartialRepository<T>`, `AbsSimpleCacheSqlPartialIntRepository<T>`). La base cache simple (`AbsSimpleCacheSqlRepositoryK`) gana un ctor con `KeyDescription` explícito, `FindKeyPropT` virtual y `KeyDescription` virtual (mismo arreglo del bug latente que en la base normal). Tests: 2 nuevos en `CachePartialRepositoryTests` (agrupación + recarga al expirar). Suites en verde (223 tests).
+
 ### Removed
 
 - Eliminada la variante con change tracking de `CacheRepository` (`AbsCacheSqlRepositoryK<T,D,K>`, `AbsCacheSqlDtoRepository<T,D>`, `AbsCacheSqlDtoIntRepository<T,D>`, `AbsCacheSqlRepository<T,K>`, `AbsCacheSqlRepository<T>`, `AbsCacheSqlIntRepository<T>`) por decisión de diseño: el cache está pensado para tablas/bases de datos SIN control de cambios (la expiración sustituye al CT); el híbrido cache+CT era conceptualmente redundante con los repositorios normales con CT. `CacheRepository` queda como familia CT-free sobre `IAbsSimpleSqlRepository<T,K>` (ya sin CT, sin cambios de interfaz). Suites en verde (219 tests).

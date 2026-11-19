@@ -49,7 +49,7 @@ namespace Rop.Database11.CacheRepository
         /// <summary>
         /// Description of the main key of the DTO type.
         /// </summary>
-        public KeyDescription KeyDescription { get; }
+        public virtual KeyDescription KeyDescription { get; }
         /// <summary>
         /// PropertyInfo of the key in the entity type.
         /// </summary>
@@ -75,11 +75,27 @@ namespace Rop.Database11.CacheRepository
         /// <param name="defaultcleantime">Interval at which the cache checks for expired entries (default: 10 minutes).</param>
         protected AbsSimpleCacheSqlRepositoryK(Database database, TimeSpan? defaultExpirationTime = null,
             TimeSpan? defaultcleantime = null)
+            : this(database,
+                DapperHelperExtend.GetKeyDescription<D>() ?? throw new ArgumentException($"Type {typeof(D)} has not key"),
+                defaultExpirationTime, defaultcleantime)
         {
-            Database = database.FactoryExternalDatabase<D>();
-            KeyDescription = DapperHelperExtend.GetKeyDescription<D>() ??
-                             throw new ArgumentException($"Type {typeof(D)} has not key");
-            KeyPropT = typeof(T).GetProperty(KeyDescription.KeyProp.Name) ??
+        }
+
+        /// <summary>
+        /// Initializes the repository with an explicit key description.
+        /// </summary>
+        /// <param name="database">Database instance.</param>
+        /// <param name="keydescription">Key description metadata for the DTO type.</param>
+        /// <param name="defaultExpirationTime">Time before cache entries expire (default: 5 minutes).</param>
+        /// <param name="defaultcleantime">Interval at which the cache checks for expired entries (default: 10 minutes).</param>
+        protected AbsSimpleCacheSqlRepositoryK(Database database, KeyDescription keydescription, TimeSpan? defaultExpirationTime = null,
+            TimeSpan? defaultcleantime = null)
+        {
+            // La resolucion de BD externa usa el KeyDescription recibido (no el del tipo D):
+            // en los repos parciales D es PartialBlock<K,D>, que no tiene atributos de tabla/clave.
+            Database = database.FactoryExternalDatabase(keydescription);
+            KeyDescription = keydescription;
+            KeyPropT = FindKeyPropT(keydescription) ??
                        throw new ArgumentException($"Type {typeof(T)} has not key");
             DefaultExpirationTime = defaultExpirationTime ?? TimeSpan.FromMinutes(5);
             DefaultExpirationCleanTime = defaultcleantime ?? TimeSpan.FromMinutes(10);
@@ -89,6 +105,16 @@ namespace Rop.Database11.CacheRepository
             Repository = new MemoryCache<K, T>(GetTKey, DefaultExpirationTime, DefaultExpirationCleanTime, eq);
             SqlLoadKeys = $"SELECT {DapperHelperExtend.SqlName(KeyDescription.KeyName)} FROM {DapperHelperExtend.SqlName(KeyDescription.TableName)}";
         }
+
+        /// <summary>
+        /// Resolves the property of the entity type that holds the repository key.
+        /// Overridable so that wrapper entity types (like the partial blocks) can
+        /// expose the key through a different property name.
+        /// </summary>
+        /// <param name="keydescription">Key description of the DTO type.</param>
+        /// <returns>The key property of the entity type, or null when it does not exist.</returns>
+        protected virtual PropertyInfo? FindKeyPropT(KeyDescription keydescription)
+            => typeof(T).GetProperty(keydescription.KeyProp.Name);
 
         private Result<T> IntGet(K key)
         {

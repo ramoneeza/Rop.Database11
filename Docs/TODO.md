@@ -24,3 +24,4 @@
 
 - [x] Riqueza de `CacheRepository` completada el 2026-11-19 (simples con DTO int/string; familia CT-free por diseño — la variante CT se eliminó)
 - [x] Riqueza de `PartialKeyRepository` completada el 2026-11-19 (CT sin DTO, `ISqlRepository` + `Version`, `Map` identidad en simples sin DTO) + bug latente del ctor base corregido
+- [x] `CachePartialKeyRepository` creada el 2026-11-19 (parciales con cache TTL para tablas sin CT; 5 clases) — las 4 familias de repos quedan alineadas
