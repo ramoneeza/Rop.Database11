@@ -9,10 +9,10 @@
 
 - [x] U-1: `DeltaChanges` → union `EmptyDelta | TableDelta` aplicada el 2026-11-19 (con `IsEmpty`/`IsNewVersion`/`NoNewVersion`/`Changes`/`GetKeys*` como miembros de la union para minimizar el switch)
 - [x] U-2: `CacheItem<T>` → union `CacheState<T>` aplicada el 2026-11-19 (estado interno del cache sin flags; consumidores con pattern matching)
-- [ ] CA-1/CA-2: collection expression arguments en `MemoryCache` y listas con capacidad
-- [ ] EI-1/EI-2/EI-3: extension indexers en `IAbsSimpleSqlRepository`, `MemoryCache`, `RepositoryDictionary`, `Database`
+- [x] CA-1/CA-2: DESCARTADAS el 2026-11-19 (sin ganancia real de rendimiento/legibilidad; reconsiderar solo con benchmark en hot path)
+- [x] EI-1: extension indexer `repo[key]` sobre `IAbsSimpleSqlRepository<T,K>` aplicado el 2026-11-19; EI-2/EI-3 DESCARTADAS (superficies internas / azúcar trivial)
 - [x] CH-1: canal de error de `ICycleTask.PayLoad` tipado con `VoidResult`/`Error` (2026-11-19; decisión: reutilizar Rop.Results9 en lugar de una union propia)
-- [ ] Labeled break/continue cuando aparezcan bucles anidados (batching, procesamiento de deltas)
+- [x] Labeled break/continue: DESCARTADA por ahora el 2026-11-19 (sin bucles anidados; adoptar si aparece batching)
 
 ## CI-CD
 

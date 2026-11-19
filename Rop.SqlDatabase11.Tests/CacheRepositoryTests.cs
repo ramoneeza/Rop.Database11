@@ -277,6 +277,21 @@ public class CacheRepositoryTests : IDisposable
     }
 
     [Fact]
+    public void Extension_Indexer_Reads_Item_By_Key()
+    {
+        // EI-1: repo[key] como azúcar sobre Get(key, out _) (extension indexer).
+        var db = new SqlDb(_connection.ConnectionString);
+        var repo = NewWorkingRepo(db);
+        repo.Init();
+
+        ItemIntAuto? item = repo[1];
+
+        Assert.NotNull(item);
+        Assert.Equal("A", item.Name);
+        Assert.Null(repo[999]);
+    }
+
+    [Fact]
     public void Simple_Int_Dto_Repo_Exposes_Keys_And_Simple_Interface()
     {
         var db = new SqlDb(_connection.ConnectionString);
