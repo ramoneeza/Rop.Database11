@@ -1,4 +1,5 @@
-﻿using Rop.Database11.Repository;
+﻿using System.Reflection;
+using Rop.Database11.Repository;
 using Rop.Database11.Tracking;
 
 namespace Rop.Database11.PartialKeyRepository;
@@ -51,12 +52,6 @@ public abstract class AbsSimpleSqlPartialRepositoryK<T,D,K>:AbsSimpleSqlReposito
     /// <param name="item">DTO instance.</param>
     /// <returns>Partial key of the item.</returns>
     public virtual K GetKey(D item) => (K)KeyDescription.GetKeyValue(item);
-    /// <summary>
-    /// Gets the partial key of the given entity item.
-    /// </summary>
-    /// <param name="item">Entity instance.</param>
-    /// <returns>Partial key of the item.</returns>
-    public abstract K GetKey(T item);
     /// <summary>
     /// Gets the key of the given partial block.
     /// </summary>
@@ -132,6 +127,15 @@ public abstract class AbsSimpleSqlPartialRepositoryK<T,D,K>:AbsSimpleSqlReposito
     protected AbsSimpleSqlPartialRepositoryK(Database database):base(database,DapperHelperExtend.GetPartialKeyDescription(typeof(D)))
     {
     }
+
+    /// <summary>
+    /// The entity type of this repository is <see cref="PartialBlock{K,T}"/>, whose key
+    /// is exposed by the <see cref="PartialBlock{K,T}.Key"/> property (not by the DTO key property).
+    /// </summary>
+    /// <param name="keydescription">Key description of the DTO type.</param>
+    /// <returns>The <c>Key</c> property of the partial block type.</returns>
+    protected override PropertyInfo? FindKeyPropT(KeyDescription keydescription)
+        => typeof(PartialBlock<K, T>).GetProperty(nameof(PartialBlock<K, T>.Key));
 }
 
 /// <summary>
@@ -162,6 +166,12 @@ public abstract class AbsSimpleSqlPartialRepository<T,D>(Database database)
 public abstract class AbsSimpleSqlPartialRepository<T>(Database database)
     : AbsSimpleSqlPartialRepository<T, T>(database) where T : class
 {
+    /// <summary>
+    /// Maps an entity to itself (identity mapping).
+    /// </summary>
+    /// <param name="item">Entity instance.</param>
+    /// <returns>The same entity.</returns>
+    protected override T Map(T item) => item;
 }
 /// <summary>
 /// Base class for a simple SQL repository with partial key support without specific DTO and key of type int.
@@ -171,6 +181,12 @@ public abstract class AbsSimpleSqlPartialRepository<T>(Database database)
 public abstract class AbsSimpleSqlPartialIntRepository<T>(Database database)
     : AbsSimpleSqlPartialIntRepository<T, T>(database) where T : class
 {
+    /// <summary>
+    /// Maps an entity to itself (identity mapping).
+    /// </summary>
+    /// <param name="item">Entity instance.</param>
+    /// <returns>The same entity.</returns>
+    protected override T Map(T item) => item;
 }
 /// <summary>
 /// Base class for a SQL repository with partial key support and DTO and Change Tracking.
@@ -178,7 +194,7 @@ public abstract class AbsSimpleSqlPartialIntRepository<T>(Database database)
 /// <typeparam name="T">Entity type (business model)</typeparam>
 /// <typeparam name="D">DTO type (database table representation)</typeparam>
 /// <typeparam name="K">Key type</typeparam>
-public abstract class AbsSqlPartialRepositoryK<T, D, K> : AbsSimpleSqlPartialRepositoryK<T, D, K> where T : class where D : class where K : notnull
+public abstract class AbsSqlPartialRepositoryK<T, D, K> : AbsSimpleSqlPartialRepositoryK<T, D, K>, ISqlRepository<PartialBlock<K, T>, K> where T : class where D : class where K : notnull
 {
     /// <summary>
     /// Gets the table dependency used for change tracking.
@@ -190,6 +206,11 @@ public abstract class AbsSqlPartialRepositoryK<T, D, K> : AbsSimpleSqlPartialRep
     /// </summary>
     /// <returns>The change tracking priority.</returns>
     public ChangeTrackingPriority ChangesPriority { get; }
+    /// <summary>
+    /// Gets the current change tracking version of the table.
+    /// </summary>
+    /// <returns>The tracking version.</returns>
+    public TrackingVersion Version => TableDependency.TableVersion;
 
     /// <summary>
     /// Combines the two partial keys reported by change tracking into a single key.
@@ -278,4 +299,52 @@ public abstract class AbsSqlPartialDtoRepository<T, D>(Database database, Change
     where T : class
     where D : class
 {
+}
+/// <summary>
+/// Base class for a SQL repository with partial key support and Change Tracking,
+/// without specific DTO and with key of type string.
+/// </summary>
+/// <typeparam name="T">Entity type, used both as entity and DTO.</typeparam>
+/// <param name="database">Database instance</param>
+/// <param name="priority">Change tracking priority. If null, uses Default (Medium - check every 16 seconds)</param>
+public abstract class AbsSqlPartialRepository<T>(Database database, ChangeTrackingPriority? priority = null)
+    : AbsSqlPartialDtoRepository<T, T>(database, priority)
+    where T : class
+{
+    /// <summary>
+    /// Gets the string partial key of the given entity item.
+    /// </summary>
+    /// <param name="item">Entity instance.</param>
+    /// <returns>Partial key of the item.</returns>
+    public new virtual string GetKey(T item) => (string)KeyDescription.GetKeyValue(item);
+    /// <summary>
+    /// Maps an entity to itself (identity mapping).
+    /// </summary>
+    /// <param name="item">Entity instance.</param>
+    /// <returns>The same entity.</returns>
+    protected override T Map(T item) => item;
+}
+/// <summary>
+/// Base class for a SQL repository with partial key support and Change Tracking,
+/// without specific DTO and with key of type int.
+/// </summary>
+/// <typeparam name="T">Entity type, used both as entity and DTO.</typeparam>
+/// <param name="database">Database instance</param>
+/// <param name="priority">Change tracking priority. If null, uses Default (Medium - check every 16 seconds)</param>
+public abstract class AbsSqlPartialIntRepository<T>(Database database, ChangeTrackingPriority? priority = null)
+    : AbsSqlPartialDtoIntRepository<T, T>(database, priority)
+    where T : class
+{
+    /// <summary>
+    /// Gets the int partial key of the given entity item.
+    /// </summary>
+    /// <param name="item">Entity instance.</param>
+    /// <returns>Partial key of the item.</returns>
+    public new virtual int GetKey(T item) => (int)KeyDescription.GetKeyValue(item);
+    /// <summary>
+    /// Maps an entity to itself (identity mapping).
+    /// </summary>
+    /// <param name="item">Entity instance.</param>
+    /// <returns>The same entity.</returns>
+    protected override T Map(T item) => item;
 }

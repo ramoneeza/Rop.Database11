@@ -23,3 +23,4 @@
 ## Rop.SqlDatabase11
 
 - [x] Riqueza de `CacheRepository` completada el 2026-11-19 (simples con DTO int/string; familia CT-free por diseño — la variante CT se eliminó)
+- [x] Riqueza de `PartialKeyRepository` completada el 2026-11-19 (CT sin DTO, `ISqlRepository` + `Version`, `Map` identidad en simples sin DTO) + bug latente del ctor base corregido

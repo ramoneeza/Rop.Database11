@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Frozen;
+using System.Reflection;
 
 namespace Rop.Database11.Repository
 {
@@ -383,14 +384,25 @@ namespace Rop.Database11.Repository
         /// <param name="keydescription">Key description metadata for the DTO type.</param>
         protected AbsSimpleSqlRepositoryK(Database database,KeyDescription keydescription)
         {
-            Database = database.FactoryExternalDatabase<D>();
+            // La resolucion de BD externa usa el KeyDescription recibido (no el del tipo D):
+            // en los repos parciales D es PartialBlock<K,D>, que no tiene atributos de tabla/clave.
+            Database = database.FactoryExternalDatabase(keydescription);
             KeyDescription = keydescription;
-            var keyPropT=typeof(T).GetProperty(keydescription.KeyProp.Name) ?? throw new ArgumentException($"Type {typeof(T)} has not key");
+            var keyPropT=FindKeyPropT(keydescription) ?? throw new ArgumentException($"Type {typeof(T)} has not key");
             KeyPropT = new PropertyCache(keyPropT);
             // ReSharper disable once VirtualMemberCallInConstructor
             //Repository = new RepositoryDictionary<K, T>(GetTKey);
             Repository = FactoryDictionary();
         }
+        /// <summary>
+        /// Resolves the property of the entity type that holds the repository key.
+        /// Overridable so that wrapper entity types (like the partial blocks) can
+        /// expose the key through a different property name.
+        /// </summary>
+        /// <param name="keydescription">Key description of the DTO type.</param>
+        /// <returns>The key property of the entity type, or null when it does not exist.</returns>
+        protected virtual PropertyInfo? FindKeyPropT(KeyDescription keydescription)
+            => typeof(T).GetProperty(keydescription.KeyProp.Name);
         
         /// <summary>
         /// Gets all items from the in-memory repository, reloading first if pending.
