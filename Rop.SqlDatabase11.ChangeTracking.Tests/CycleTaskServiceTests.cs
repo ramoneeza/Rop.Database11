@@ -4,9 +4,9 @@ using Rop.Results9;
 namespace Rop.SqlDatabase11.ChangeTracking.Tests;
 
 /// <summary>
-/// SD-5: CycleTaskService.TryAdd debe ser thread-safe: la misma clave
-/// devuelve siempre la misma instancia y el alta concurrente no corrompe
-/// el mapa ni arranca dobles bucles de polling.
+/// SD-5: CycleTaskService.TryAdd must be thread-safe: the same key always
+/// returns the same instance, and concurrent registration does not corrupt
+/// the map nor start duplicate polling loops.
 /// </summary>
 public class CycleTaskServiceTests
 {
@@ -74,8 +74,8 @@ public class CycleTaskServiceTests
     [Fact]
     public void Dispose_Disposes_Disposable_Tasks()
     {
-        // SD-17: al disponer el servicio se disponen los items IDisposable
-        // (p. ej. SqlTableDependency con su canal).
+        // SD-17: disposing the service also disposes its IDisposable items
+        // (e.g. SqlTableDependency with its channel).
         var service = new CycleTaskService<string, DisposableFakeTask>();
         var fake = service.TryAdd("k", _ => new DisposableFakeTask());
 
@@ -87,8 +87,8 @@ public class CycleTaskServiceTests
     [Fact]
     public void Wrapper_Rethrows_OperationCanceledException()
     {
-        // GE-4: la OCE de PayLoad sube al bucle del servicio (parada limpia),
-        // no se convierte en mensaje de error.
+        // GE-4: the OCE from PayLoad propagates up to the service loop (clean
+        // shutdown); it is not turned into an error message.
         var wrapper = new CycleTaskWrapper<CancellingFakeTask>(new CancellingFakeTask());
 
         Assert.ThrowsAny<OperationCanceledException>(() => wrapper.Execute());
@@ -97,7 +97,7 @@ public class CycleTaskServiceTests
     [Fact]
     public void Wrapper_Returns_Success_When_Token_Cancelled()
     {
-        // CH-1: con VoidResult el "no ejecutado" ya no es null, es éxito.
+        // CH-1: with VoidResult, "not executed" is no longer null, it is success.
         var wrapper = new CycleTaskWrapper<FakeTask>(new FakeTask("k"));
 
         Assert.False(wrapper.Execute(new CancellationToken(true)).IsFailed);
@@ -106,8 +106,8 @@ public class CycleTaskServiceTests
     [Fact]
     public void Wrapper_Execute_Uses_Utc_Timestamps()
     {
-        // SD-14: instantes UTC consistentes en el scheduler (antes se mezclaban
-        // DateTimeOffset.Now y DateTime.Now).
+        // SD-14: consistent UTC instants in the scheduler (it used to mix
+        // DateTimeOffset.Now and DateTime.Now).
         var wrapper = new CycleTaskWrapper<FakeTask>(new FakeTask("k"));
 
         Assert.False(wrapper.Execute().IsFailed);
@@ -120,8 +120,8 @@ public class CycleTaskServiceTests
     [Fact]
     public void Queue_TryDequeueInTime_Respects_Future_NextRun()
     {
-        // SD-14: la cola compara NextRun (UTC) contra UtcNow; un wrapper
-        // recien ejecutado con intervalo de 60s no debe salir todavia.
+        // SD-14: the queue compares NextRun (UTC) against UtcNow; a wrapper
+        // just executed with a 60s interval must not be due yet.
         var queue = new CycleQueue<FakeTask>();
         queue.Enqueue(new FakeTask("k"));
         Assert.True(queue.TryDequeueInTime(out var wrapper));

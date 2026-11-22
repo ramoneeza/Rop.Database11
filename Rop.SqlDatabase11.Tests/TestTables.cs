@@ -46,7 +46,7 @@ internal static class TestTables
             """);
 
     /// <summary>
-    /// CE-7: tabla y columna con palabras reservadas ('Order' / 'User').
+    /// CE-7: table and column with reserved words ('Order' / 'User').
     /// </summary>
     public static void CreateReservedOrder(SqlConnection connection) =>
         Recreate(connection, "[Order]", """

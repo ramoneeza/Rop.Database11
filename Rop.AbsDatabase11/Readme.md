@@ -135,7 +135,7 @@ See [LICENSE](../LICENSE) file for details.
 ## Documentation
 
 - [Rop.Dapper.ContribEx11 Documentation] - Dapper extensions and helpers
-- [Rop.AbsDatabase11 Documentation] - Abstract database layer and Unit of Work  ✅ NUEVO
+- [Rop.AbsDatabase11 Documentation] - Abstract database layer and Unit of Work  ✅ NEW
 - [Rop.SqlDatabase11 Documentation] - Repository patterns and Change Tracking
 
 ---

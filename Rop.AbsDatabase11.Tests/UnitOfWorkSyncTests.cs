@@ -284,7 +284,7 @@ public class UnitOfWorkSyncTests
         Assert.Empty(db.LastConnection!.Transactions);
     }
 
-    // ==== Semántica adicional ====
+    // ==== Additional semantics ====
 
     [Fact]
     public void FactoryConnection_Throwing_Returns_Error_Instead_Of_Throwing()

@@ -44,8 +44,8 @@ internal static class TestTables
     }
 
     /// <summary>
-    /// CE-7: tabla con palabra reservada ('Order') y Change Tracking activado,
-    /// para validar el escapado en 'changetable(changes [Order], ...)'.
+    /// CE-7: table with a reserved word ('Order') and Change Tracking enabled,
+    /// to validate the escaping in 'changetable(changes [Order], ...)'.
     /// </summary>
     public static void CreateCtOrder(SqlConnection connection)
     {

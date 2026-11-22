@@ -3,9 +3,9 @@ using Rop.Database;
 namespace Rop.AbsDatabase11.Tests;
 
 /// <summary>
-/// AB-9: ConnStringExtractor debe reconocer alias (Server/Database) y no
-/// confundirse con texto que parezca clave dentro de valores entrecomillados.
-/// Se prueba a traves de las propiedades Server/MainDatabaseName de AbsDatabase.
+/// AB-9: ConnStringExtractor must recognize aliases (Server/Database) and must not
+/// get confused by key-like text inside quoted values.
+/// Tested through the Server/MainDatabaseName properties of AbsDatabase.
 /// </summary>
 public class ConnStringTests
 {
@@ -30,8 +30,8 @@ public class ConnStringTests
     [Fact]
     public void Ctor_Ignores_Key_Lookalikes_Inside_Quoted_Values()
     {
-        // Con el regex antiguo, la primera coincidencia era "fake" (dentro del
-        // password) porque iba antes que las claves reales.
+        // With the old regex, the first match was "fake" (inside the
+        // password) because it came before the real keys.
         var db = new FakeDatabase(
             """Password="data source=fake;initial catalog=fake";Data Source=RealServer;Initial Catalog=RealDb""");
 

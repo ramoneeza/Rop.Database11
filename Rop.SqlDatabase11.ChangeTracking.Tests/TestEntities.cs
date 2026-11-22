@@ -65,7 +65,7 @@ public class CtTypeRow
 }
 
 /// <summary>
-/// CE-7: tabla con palabra reservada ('Order') para validar el escapado en
+/// CE-7: table with a reserved word ('Order') to validate the escaping in
 /// 'changetable(changes [Order], ...)'.
 /// </summary>
 [Table("Order")]

@@ -6,7 +6,7 @@ namespace Rop.AbsDatabase11.Tests;
 
 /// <summary>
 /// Tests for the 16 asynchronous UnitOfWork combinations:
-/// { Conn | Conn+Tr } × { Result<T> | EnumerableResult<T> | IEnumerable<T> | T } × { sin ct | con ct }.
+/// { Conn | Conn+Tr } × { Result<T> | EnumerableResult<T> | IEnumerable<T> | T } × { no ct | with ct }.
 /// Explicit parameter types are used in the lambdas to avoid CS0121 ambiguity
 /// between the DbTransaction and CancellationToken overloads.
 /// </summary>
@@ -220,7 +220,7 @@ public class UnitOfWorkAsyncTests
         Assert.Equal(9, res.Value);
     }
 
-    // ==== Cancelación ====
+    // ==== Cancellation ====
 
     [Fact]
     public async Task Cancelled_Token_Throws_OperationCanceledException_And_RollsBack()

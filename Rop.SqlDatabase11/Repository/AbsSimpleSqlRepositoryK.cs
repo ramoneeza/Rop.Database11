@@ -322,9 +322,9 @@ namespace Rop.Database11.Repository
         public bool ResetIds(params IReadOnlyCollection<K> changes)
         {
             if (changes.Count == 0) return true;
-            // SD-9: mismo lock que Reset/Init/Check para no solaparse con un ReloadAll
-            // concurrente (el lock es reentrante: los eventos del llamador pueden
-            // volver a entrar sin bloquearse).
+            // SD-9: same lock as Reset/Init/Check so it cannot overlap with a concurrent
+            // ReloadAll (the lock is reentrant: caller events can re-enter
+            // without blocking).
             lock (_lockreload)
             {
                 try
@@ -384,8 +384,8 @@ namespace Rop.Database11.Repository
         /// <param name="keydescription">Key description metadata for the DTO type.</param>
         protected AbsSimpleSqlRepositoryK(Database database,KeyDescription keydescription)
         {
-            // La resolucion de BD externa usa el KeyDescription recibido (no el del tipo D):
-            // en los repos parciales D es PartialBlock<K,D>, que no tiene atributos de tabla/clave.
+            // External DB resolution uses the received KeyDescription (not the one of type D):
+            // in partial repositories D is PartialBlock<K,D>, which has no table/key attributes.
             Database = database.FactoryExternalDatabase(keydescription);
             KeyDescription = keydescription;
             var keyPropT=FindKeyPropT(keydescription) ?? throw new ArgumentException($"Type {typeof(T)} has not key");

@@ -106,8 +106,8 @@ namespace Rop.Database11.Repository
             return alldto.Map(Map);
         }
 
-        // SD-17: al disponer el repo se desuscribe del change tracking para que
-        // los deltas dejen de llegar (la dependencia y la BD son compartidas).
+        // SD-17: when the repository is disposed it unsubscribes from change
+        // tracking so the deltas stop arriving (the dependency and the DB are shared).
         /// <summary>
         /// Unsubscribes from the table dependency and disposes the repository.
         /// </summary>

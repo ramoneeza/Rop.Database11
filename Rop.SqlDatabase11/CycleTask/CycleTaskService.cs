@@ -51,7 +51,7 @@ public class CycleTaskService<K,T>:IDisposable where T: class,ICycleTask where K
     {
         if (key is null) throw new ArgumentNullException(nameof(key));
         if (fntask is null) throw new ArgumentNullException(nameof(fntask));
-        // SD-5: alta protegida — una sola instancia por clave y un solo bucle de polling.
+        // SD-5: protected registration — one instance per key and a single polling loop.
         lock (_lockadd)
         {
             var final=_map.GetValueOrDefault(key);
@@ -72,8 +72,8 @@ public class CycleTaskService<K,T>:IDisposable where T: class,ICycleTask where K
         }
     }
     /// <summary>
-    /// Last error in the queue (CH-1: <see cref="Error"/> en lugar de string,
-    /// para conservar la excepción completa).
+    /// Last error in the queue (CH-1: <see cref="Error"/> instead of string,
+    /// to preserve the full exception).
     /// </summary>
     public Error? LastError { get; private set; }
     private async Task _runAsync(CancellationToken ct)
@@ -125,8 +125,8 @@ public class CycleTaskService<K,T>:IDisposable where T: class,ICycleTask where K
             }
         }
         _cts.Dispose();
-        // Los items IDisposable (p. ej. SqlTableDependency con su canal) se
-        // disponen al parar el servicio para no dejar lectores vivos.
+        // IDisposable items (e.g. SqlTableDependency with its channel) are
+        // disposed when the service stops so no live readers remain.
         lock (_lockadd)
         {
             foreach (var wrapper in _map.Values)

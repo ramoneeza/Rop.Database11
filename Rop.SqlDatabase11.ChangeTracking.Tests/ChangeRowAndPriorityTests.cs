@@ -99,9 +99,9 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_Can_Be_Empty_With_New_Version()
     {
-        // SD-7/U-1: el estado "version nueva pero sin cambios" es posible (todas las
-        // operaciones filtradas como Unknown). Se modela como EmptyDelta con
-        // version nueva; PayLoad debe avanzar TableVersion en este caso.
+        // SD-7/U-1: the "new version but no changes" state is possible (all
+        // operations filtered out as Unknown). It is modeled as an EmptyDelta
+        // with a new version; PayLoad must advance TableVersion in this case.
         DeltaChanges d = new EmptyDelta(SingleKey(), 5, 0);
 
         Assert.True(d.IsEmpty);
@@ -140,7 +140,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void Priority_Descriptions_Are_Consistent()
     {
-        // SD-16: MediumHigh no es el default; Default es alias de Medium.
+        // SD-16: MediumHigh is not the default; Default is an alias for Medium.
         Assert.DoesNotContain("Default", ChangeTrackingPriority.MediumHigh.GetDescription());
         Assert.Equal(
             ChangeTrackingPriority.Medium.GetDescription(),
@@ -163,7 +163,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_GetKeys_Generic_Returns_Typed_Keys()
     {
-        // SD-19: acceso tipado sin casts en el consumidor.
+        // SD-19: typed access with no casts on the consumer side.
         DeltaChanges d = new TableDelta(SingleKey(), 2, 0, new[]
         {
             new ChangeRow(1, null, ChangeOperation.Insert),
@@ -176,7 +176,7 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void DeltaChanges_GetKeys_Generic_Wrong_Type_Throws()
     {
-        // int -> string seria convertible via IConvertible; int -> Guid no.
+        // int -> string would be convertible via IConvertible; int -> Guid is not.
         DeltaChanges d = new TableDelta(SingleKey(), 1, 0, new[] { new ChangeRow(1, null, ChangeOperation.Insert) });
 
         Assert.Throws<InvalidCastException>(() => d.GetKeys<Guid>().ToList());
@@ -197,8 +197,8 @@ public class ChangeRowAndPriorityTests
     [Fact]
     public void RecordsChangedEventArgs_Null_Means_Full_Reload()
     {
-        // SD-19: Reloaded renombrado a IsFullReload (la recarga completa no
-        // significa "sin cambios", significa "todos").
+        // SD-19: Reloaded renamed to IsFullReload (a full reload does not
+        // mean "no changes", it means "all of them").
         var e = new RecordsChangedEventArgs<int>(null);
 
         Assert.Empty(e.Changes);

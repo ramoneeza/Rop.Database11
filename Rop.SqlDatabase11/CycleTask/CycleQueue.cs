@@ -68,8 +68,8 @@ public class CycleQueue<T> where T : class,ICycleTask
         {
             element = null;
             if (!_queue.TryPeek(out var wrapper, out _)) return false;
-            // SD-14: comparacion UTC consistente (antes DateTime.Now convertido
-            // implicitamente a DateTimeOffset con el offset local).
+            // SD-14: consistent UTC comparison (previously DateTime.Now was implicitly
+            // converted to DateTimeOffset with the local offset).
             if (wrapper.NextRun > DateTimeOffset.UtcNow) return false;
             element = _queue.Dequeue();
             return true;

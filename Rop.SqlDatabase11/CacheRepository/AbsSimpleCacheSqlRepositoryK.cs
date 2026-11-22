@@ -91,8 +91,8 @@ namespace Rop.Database11.CacheRepository
         protected AbsSimpleCacheSqlRepositoryK(Database database, KeyDescription keydescription, TimeSpan? defaultExpirationTime = null,
             TimeSpan? defaultcleantime = null)
         {
-            // La resolucion de BD externa usa el KeyDescription recibido (no el del tipo D):
-            // en los repos parciales D es PartialBlock<K,D>, que no tiene atributos de tabla/clave.
+            // External DB resolution uses the received KeyDescription (not the one of type D):
+            // in partial repositories D is PartialBlock<K,D>, which has no table/key attributes.
             Database = database.FactoryExternalDatabase(keydescription);
             KeyDescription = keydescription;
             KeyPropT = FindKeyPropT(keydescription) ??
@@ -151,7 +151,7 @@ namespace Rop.Database11.CacheRepository
         /// <returns>Result with the loaded keys, or the error that occurred.</returns>
         protected EnumerableResult<K> IntReloadAllKeys()
         {
-            // SD-4: la consulta a BD va fuera del lock.
+            // SD-4: the DB query runs outside the lock.
             var keys = Database.Query<K>(SqlLoadKeys);
             if (keys.IsFailed)
             {
@@ -313,19 +313,19 @@ namespace Rop.Database11.CacheRepository
         {
             error = null;
             Check();
-            // SD-4: lectura del cache con su lock interno; la recarga (BD) va fuera de locks.
+            // SD-4: cache read uses its internal lock; the reload (DB) runs outside the locks.
             var r = Repository.GetValueOrDefault(key);
             if (r is ValidItem<T> vi) return vi.Value;
             var r2 = IntGet(key);
             if (r2.IsFailedAndNotNull)
             {
-                // error real: mal menor devolviendo el valor expirado que quede en cache
-                // (paridad con r?.Value: tras expirar el valor ya no esta disponible)
+                // real error: lesser evil, return the expired value still in the cache
+                // (parity with r?.Value: once expired the value is no longer available)
                 error = r2.Error;
                 LastError = r2.Error;
                 return r is ValidItem<T> vi2 ? vi2.Value : default;
             }
-            if (r2.IsFailed) return null; // no encontrado (NullError)
+            if (r2.IsFailed) return null; // not found (NullError)
             Repository.Add(r2.Value!);
             return r2.Value;
         }
@@ -339,7 +339,7 @@ namespace Rop.Database11.CacheRepository
         {
             error = null;
             Check();
-            // SD-4: RefreshAll gestiona sus propios locks por fases; la recarga va fuera.
+            // SD-4: RefreshAll manages its own locks in phases; the reload runs outside.
             var r = Repository.RefreshAll((count, keys) =>
             {
                 if (keys.Count > count * 0.75)
@@ -353,7 +353,7 @@ namespace Rop.Database11.CacheRepository
             });
             if (r.IsFailed)
             {
-                // mal menor: devolver los datos que quedan en memoria (aunque expirados)
+                // lesser evil: return the data still in memory (even if expired)
                 error = r.Error;
                 LastError = r.Error;
                 return Repository.GetAllValues();
@@ -384,14 +384,14 @@ namespace Rop.Database11.CacheRepository
                 var r2 = IntGet(key);
                 if (r2.IsFailedAndNotNull)
                 {
-                    // error real: mal menor con el valor expirado si existe
-                    // (paridad con r?.Value: tras expirar el valor ya no esta disponible)
+                    // real error: lesser evil, keep the expired value if present
+                    // (parity with r?.Value: once expired the value is no longer available)
                     error ??= r2.Error;
                     LastError = r2.Error;
                     if (r is ValidItem<T> vi2) res.Add(vi2.Value);
                     continue;
                 }
-                if (r2.IsFailed) continue; // no encontrado (NullError) → saltar
+                if (r2.IsFailed) continue; // not found (NullError) → skip
                 Repository.Add(r2.Value!);
                 res.Add(r2.Value!);
             }

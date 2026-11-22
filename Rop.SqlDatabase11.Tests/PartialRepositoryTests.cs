@@ -3,15 +3,15 @@ using Rop.Dapper.ContribEx11;
 using Rop.Database11.PartialKeyRepository;
 using Rop.Database11.Repository;
 using Rop.Results9;
-// Alias con nombre distinto: "Database" enlazaría al namespace Rop.Database.
+// Alias with a different name: "Database" would bind to the Rop.Database namespace.
 using SqlDb = Rop.Database11.Database;
 
 namespace Rop.SqlDatabase11.Tests;
 
 /// <summary>
-/// Tests for the partial key repositories (agrupan items por la primera clave parcial).
-/// Riqueza de PartialKeyRepository (2026-11-19): variantes simples sin DTO con Map
-/// identidad y variantes CT sin DTO con GetKey virtual e ISqlRepository.
+/// Tests for the partial key repositories (they group items by the first partial key).
+/// PartialKeyRepository richness (2026-11-19): simple no-DTO variants with identity
+/// Map and no-DTO CT variants with virtual GetKey and ISqlRepository.
 /// </summary>
 [Collection("Database")]
 public class PartialRepositoryTests : IDisposable
@@ -69,7 +69,7 @@ public class PartialRepositoryTests : IDisposable
         var all = repo.GetAll(out var error);
 
         Assert.Null(error);
-        Assert.Equal(2, all.Count); // bloques por OwnerId: 1 y 2
+        Assert.Equal(2, all.Count); // blocks by OwnerId: 1 and 2
         var block1 = all.Single(b => b.Key == 1);
         Assert.Equal(new[] { "A", "B" }, block1.Block.Select(i => i.Code).ToArray());
 
@@ -77,7 +77,7 @@ public class PartialRepositoryTests : IDisposable
         Assert.Null(error2);
         Assert.Equal(2, block!.Block.Count);
 
-        // GetKey del core (sobre DTO == entidad) extrae la primera clave parcial
+        // The core GetKey (on DTO == entity) extracts the first partial key
         Assert.Equal(1, repo.GetKey(new ItemPartial { OwnerId = 1, Code = "X" }));
     }
 
@@ -97,7 +97,7 @@ public class PartialRepositoryTests : IDisposable
         Assert.Single(block!.Block);
         Assert.Equal("C", block.Block[0].Code);
 
-        // GetKey virtual de la variante sin DTO
+        // The virtual GetKey of the no-DTO variant
         Assert.Equal(2, repo.GetKey(new ItemPartial { OwnerId = 2, Code = "X" }));
     }
 }

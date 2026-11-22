@@ -3,8 +3,8 @@ using Dapper.Contrib.Extensions;
 using Microsoft.Data.SqlClient;
 using Rop.Dapper.ContribEx11;
 using Rop.Results9;
-// Alias: "Database" enlazaria al namespace Rop.Database (miembro del padre Rop)
-// y los using/aliases no pueden vencer a un miembro del namespace contenedor.
+// Alias: "Database" would bind to the Rop.Database namespace (a member of the parent Rop)
+// and using directives/aliases cannot beat a member of the containing namespace.
 using SqlDb = Rop.Database11.Database;
 
 namespace Rop.SqlDatabase11.Tests;
@@ -45,7 +45,7 @@ public class DatabaseTests : IDisposable
         _connection.Insert(new OrderLine { Id = 2, OrderId = 1, Product = "P2" });
     }
 
-    // ==== Constructor y metadata ====
+    // ==== Constructor and metadata ====
 
     [Fact]
     public void Ctor_Extracts_Server_And_Database_Names()
@@ -305,8 +305,8 @@ public class DatabaseTests : IDisposable
     [Fact]
     public void Check_With_Reserved_Word_Table_Works()
     {
-        // AB-4/CE-7: Check<T> genera su propio SQL; con una tabla llamada
-        // 'Order' (reservada) debe escapar el identificador.
+        // AB-4/CE-7: Check<T> generates its own SQL; with a table named
+        // 'Order' (reserved) it must escape the identifier.
         TestTables.CreateReservedOrder(_connection);
         _connection.Execute("INSERT INTO [Order] ([Id], [User], [Quantity]) VALUES (1, 'A', 10)");
 

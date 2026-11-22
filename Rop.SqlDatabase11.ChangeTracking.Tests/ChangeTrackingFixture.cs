@@ -9,11 +9,11 @@ namespace Rop.SqlDatabase11.ChangeTracking.Tests;
 /// Creates an isolated SQL Server database with Change Tracking enabled
 /// at database level. Each test enables CT on its own tables.
 ///
-/// Requisitos de Change Tracking (Rop.Database11):
-/// - BASE DE DATOS: CHANGE_TRACKING = ON con retencion minima de 2 dias
-///   y limpieza automatica (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON).
-/// - TABLA: ENABLE CHANGE_TRACKING a nivel de tabla. El seguimiento de
-///   columnas (TRACK_COLUMNS_UPDATED) puede estar en false.
+/// Change Tracking requirements (Rop.Database11):
+/// - DATABASE: CHANGE_TRACKING = ON with a minimum retention of 2 days
+///   and automatic cleanup (CHANGE_RETENTION = 2 DAYS, AUTO_CLEANUP = ON).
+/// - TABLE: ENABLE CHANGE_TRACKING at table level. Column tracking
+///   (TRACK_COLUMNS_UPDATED) may be left as false.
 /// </summary>
 public sealed class ChangeTrackingFixture : IAsyncLifetime
 {

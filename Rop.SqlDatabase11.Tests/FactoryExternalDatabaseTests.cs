@@ -4,10 +4,10 @@ using SqlDb = Rop.Database11.Database;
 namespace Rop.SqlDatabase11.Tests;
 
 /// <summary>
-/// SD-1: FactoryExternalDatabase debe cambiar SOLO InitialCatalog (y DataSource
-/// en la sobrecarga con server) sin corromper el resto del connection string,
-/// incluso cuando el nombre de la BD aparece en servidor/usuario/password.
-/// Sin base de datos: solo se construye y se inspecciona el connection string.
+/// SD-1: FactoryExternalDatabase must change ONLY InitialCatalog (and
+/// DataSource in the server overload) without corrupting the rest of the
+/// connection string, even when the DB name appears in server/user/password.
+/// No database needed: the connection string is only built and inspected.
 /// </summary>
 public class FactoryExternalDatabaseTests
 {
@@ -46,7 +46,7 @@ public class FactoryExternalDatabaseTests
     [Fact]
     public void FactoryExternalDatabase_With_Server_Aliases_Works_End_To_End()
     {
-        // AB-9: el extractor reconoce alias; SD-1: el builder los conserva.
+        // AB-9: the extractor recognizes aliases; SD-1: the builder preserves them.
         var parent = new SqlDb("Server=AliasServer;Database=AliasDb;User Id=U;Password=P");
         Assert.Equal("AliasServer", parent.Server);
         Assert.Equal("AliasDb", parent.MainDatabaseName);
@@ -74,8 +74,8 @@ public class FactoryExternalDatabaseTests
     [Fact]
     public void FactoryExternalDatabase_With_Server_Caches_By_Db_And_Server()
     {
-        // SD-18: antes cada llamada con server distinto creaba un root nuevo
-        // (con sus propios cycle tasks). Ahora se cachea por (bd, server).
+        // SD-18: previously each call with a different server created a new
+        // root (with its own cycle tasks). Now it is cached by (db, server).
         var parent = new SqlDb(ConnStr);
 
         var a = parent.FactoryExternalDatabase("OtherDb", "OtherServer");
@@ -100,9 +100,9 @@ public class FactoryExternalDatabaseTests
     [Fact]
     public void FactoryExternalDatabaseT_Type_Without_Key_Throws_InvalidOperationException()
     {
-        // GE-3: error de programacion → excepcion con tipo concreto.
-        // (GetKeyDescription lanza InvalidOperationException para tipos sin
-        // clave; GetAnyKeyDescription es la variante que devuelve null.)
+        // GE-3: programming error -> exception with a concrete type.
+        // (GetKeyDescription throws InvalidOperationException for keyless
+        // types; GetAnyKeyDescription is the variant that returns null.)
         var parent = new SqlDb(ConnStr);
 
         Assert.Throws<InvalidOperationException>(() => parent.FactoryExternalDatabase<KeylessType>());

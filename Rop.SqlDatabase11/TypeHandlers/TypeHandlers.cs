@@ -12,7 +12,7 @@ public static class NewTypeHandlers
     /// </summary>
     public static void Ensure()
     {
-        // Interlocked: el registro es unico aunque varios Database se creen en paralelo.
+        // Interlocked: registration is unique even if several Database instances are created in parallel.
         if (Interlocked.Exchange(ref _registered, 1) != 0) return;
         SqlMapper.AddTypeHandler(new TimeOnlyTypeHandler());
         SqlMapper.AddTypeHandler(new TimeOnlyTypeHandler2());

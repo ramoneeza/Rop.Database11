@@ -44,8 +44,8 @@ public class CycleTaskWrapper<T> where T: ICycleTask
     public VoidResult Execute(CancellationToken? ct = null)
     {
         if (ct?.IsCancellationRequested ?? false) return VoidResult.Ok;
-        // SD-14: instantes UTC en todo el scheduler (antes se mezclaban
-        // DateTimeOffset.Now y DateTime.Now).
+        // SD-14: UTC instants throughout the scheduler (previously
+        // DateTimeOffset.Now and DateTime.Now were mixed).
         var now = DateTimeOffset.UtcNow;
         if (now < NextRun) return VoidResult.Ok;
         LastRun = now;
@@ -55,8 +55,8 @@ public class CycleTaskWrapper<T> where T: ICycleTask
         }
         catch (OperationCanceledException)
         {
-            // La cancelacion sube al bucle del CycleTaskService, que la usa
-            // para detenerse de forma limpia.
+            // The cancellation propagates up to the CycleTaskService loop, which
+            // uses it to stop cleanly.
             throw;
         }
         catch (Exception ex)

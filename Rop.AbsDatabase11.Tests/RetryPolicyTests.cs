@@ -4,8 +4,8 @@ using Rop.Results9;
 namespace Rop.AbsDatabase11.Tests;
 
 /// <summary>
-/// Excepción "transitoria" para los tests de retry (los SqlException reales
-/// no se pueden construir; el predicado de la política se configura en el test).
+/// "Transient" exception for the retry tests (real SqlExceptions
+/// cannot be constructed; the policy predicate is configured in the test).
 /// </summary>
 internal sealed class TestTransientException : Exception
 {
@@ -13,8 +13,8 @@ internal sealed class TestTransientException : Exception
 }
 
 /// <summary>
-/// Tests de la política de reintentos (AB-8): reintento ante errores transitorios
-/// en las rutas transaccionales y no transaccionales, sync y async.
+/// Tests for the retry policy (AB-8): retry on transient errors
+/// on the transactional and non-transactional paths, sync and async.
 /// </summary>
 public class RetryPolicyTests
 {
@@ -51,7 +51,7 @@ public class RetryPolicyTests
         Assert.False(res.IsFailed);
         Assert.Equal(42, res.Value);
         Assert.Equal(2, calls);
-        Assert.Equal(2, connections); // una conexión nueva por intento
+        Assert.Equal(2, connections); // a new connection per attempt
         Assert.True(db.LastTransaction!.Committed);
     }
 
@@ -69,7 +69,7 @@ public class RetryPolicyTests
         });
 
         Assert.True(res.IsFailed);
-        Assert.Equal(3, calls); // 1 intento + 2 reintentos
+        Assert.Equal(3, calls); // 1 attempt + 2 retries
         Assert.IsType<TestTransientException>(((ExceptionError)res.Error!).Data);
     }
 
@@ -132,7 +132,7 @@ public class RetryPolicyTests
         Assert.False(res.IsFailed);
         Assert.Equal(2, calls);
         Assert.Equal(2, connections.Count);
-        // el primer intento hizo rollback (silencioso); el segundo commit
+        // the first attempt rolled back (silently); the second committed
         Assert.True(connections[0].Transactions[0].RolledBack);
         Assert.False(connections[0].Transactions[0].Committed);
         Assert.True(connections[1].Transactions[0].Committed);
@@ -275,7 +275,7 @@ public class RetryPolicyTests
         });
     }
 
-    // ==== RetryPolicy (detección y retardos) ====
+    // ==== RetryPolicy (detection and delays) ====
 
     [Fact]
     public void IsTransientDefault_Classifies_Common_Cases()

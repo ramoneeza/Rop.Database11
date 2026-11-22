@@ -57,7 +57,7 @@ public class SimpleRepositoryTests : IDisposable
 
         Assert.False(ok);
         Assert.NotNull(repo.LastError);
-        Assert.True(repo.MustReload); // SD-10: reintentar en la siguiente llamada
+        Assert.True(repo.MustReload); // SD-10: retry on the next call
     }
 
     [Fact]
@@ -74,13 +74,13 @@ public class SimpleRepositoryTests : IDisposable
 
         Assert.False(repo2.MustReload);
         Assert.Null(repo2.LastError);
-        Assert.Equal(2, reloadAllCalls); // Init + reintento
+        Assert.Equal(2, reloadAllCalls); // Init + retry
     }
 
     [Fact]
     public void ResetIds_Waits_For_Ongoing_ReloadAll()
     {
-        // SD-9: ResetIds debe esperar a que termine un ReloadAll en curso.
+        // SD-9: ResetIds must wait for an ongoing ReloadAll to finish.
         var inReload = new ManualResetEventSlim(false);
         var release = new ManualResetEventSlim(false);
         var someCalls = 0;
@@ -104,7 +104,7 @@ public class SimpleRepositoryTests : IDisposable
 
         var resetTask = Task.Run(() => repo.ResetIds(new[] { 1 }));
         Thread.Sleep(300);
-        Assert.Equal(0, Volatile.Read(ref someCalls)); // debe estar esperando
+        Assert.Equal(0, Volatile.Read(ref someCalls)); // it must be waiting
 
         release.Set();
         Assert.True(reloadTask.Wait(TimeSpan.FromSeconds(5)));
@@ -115,8 +115,8 @@ public class SimpleRepositoryTests : IDisposable
     [Fact]
     public void Dispose_Is_Idempotent_And_Keeps_Database_Usable()
     {
-        // SD-17: disponer el repo (sin CT) es idempotente y NO dispone el
-        // Database compartido.
+        // SD-17: disposing the repo (without CT) is idempotent and does NOT
+        // dispose the shared Database.
         var repo = new TestRepo(_db) { ReloadAll = Items };
         repo.Init();
 

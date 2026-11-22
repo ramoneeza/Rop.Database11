@@ -58,14 +58,14 @@ public class TableDependencyTests : IDisposable
 
         var id = (int)_connection.Insert(new CtItem { Name = "A", Quantity = 1 });
 
-        // PayLoad no debe devolver error (devuelve el mensaje de excepcion si falla).
+        // PayLoad must not return an error (it returns the exception message on failure).
         Assert.False(dep.PayLoad().IsFailed);
 
         var delta = await tcs.Task.WaitAsync(TimeSpan.FromSeconds(15));
         var change = Assert.Single(delta.Changes);
         Assert.Equal(ChangeOperation.Insert, change.Operation);
         Assert.Equal(id, change.Id);
-        Assert.Equal(id, delta.GetKeys<int>().Single()); // SD-19: claves tipadas
+        Assert.Equal(id, delta.GetKeys<int>().Single()); // SD-19: typed keys
         Assert.True(delta.IsNewVersion);
         Assert.Equal(delta.Version, dep.TableVersion.Version);
     }
@@ -73,8 +73,8 @@ public class TableDependencyTests : IDisposable
     [Fact]
     public void PayLoad_Returns_Failed_Result_On_Table_Without_CT()
     {
-        // CH-1: el error operativo viaja como VoidResult fallido (Error),
-        // no como string.
+        // CH-1: the operational error travels as a failed VoidResult (Error),
+        // not as a string.
         var dep = _db.GetTableDependency(typeof(CtNoTrackItem), ChangeTrackingPriority.Default);
 
         var error = dep.PayLoad();
@@ -92,8 +92,8 @@ public class TableDependencyTests : IDisposable
     [Fact]
     public async Task OnChanged_Delivers_Deltas_In_Order()
     {
-        // SD-8: los deltas se entregan en orden y serializados (canal FIFO con
-        // un unico lector). Antes cada delta iba en su propio Task.Run.
+        // SD-8: deltas are delivered in order and serialized (FIFO channel with
+        // a single reader). Previously each delta ran in its own Task.Run.
         var dep = _db.GetTableDependency(typeof(CtItem), ChangeTrackingPriority.Realtime);
         var received = new List<DeltaChanges>();
         var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -124,8 +124,9 @@ public class TableDependencyTests : IDisposable
     [Fact]
     public async Task OnChanged_Handler_Exception_Does_Not_Break_Delivery()
     {
-        // SD-8: un handler que lanza no impide que los demas handlers de la misma
-        // invocacion reciban el delta, ni que el siguiente delta se entregue.
+        // SD-8: a handler that throws does not prevent the other handlers of
+        // the same invocation from receiving the delta, nor the next delta
+        // from being delivered.
         var dep = _db.GetTableDependency(typeof(CtItem), ChangeTrackingPriority.Realtime);
         var secondCalled = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         dep.OnChanged += (_, _) => throw new InvalidOperationException("handler roto");
@@ -135,7 +136,7 @@ public class TableDependencyTests : IDisposable
         Assert.False(dep.PayLoad().IsFailed);
         await secondCalled.Task.WaitAsync(TimeSpan.FromSeconds(15));
 
-        // El lector sigue vivo: un segundo delta llega a un tercer handler.
+        // The reader is still alive: a second delta reaches a third handler.
         var third = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         dep.OnChanged += (_, _) => third.TrySetResult();
         _connection.Update(new CtItem { Id = id, Name = "A2", Quantity = 2 });
@@ -146,8 +147,8 @@ public class TableDependencyTests : IDisposable
     [Fact]
     public void PayLoad_With_Cancelled_Token_Throws_OperationCanceledException()
     {
-        // GE-4: la cancelacion cooperativa se propaga (el CycleTaskService la
-        // usa para detenerse de forma limpia).
+        // GE-4: cooperative cancellation propagates (the CycleTaskService
+        // uses it to stop cleanly).
         var dep = _db.GetTableDependency(typeof(CtItem), ChangeTrackingPriority.Realtime);
 
         Assert.ThrowsAny<OperationCanceledException>(() => dep.PayLoad(new CancellationToken(true)));
@@ -156,8 +157,8 @@ public class TableDependencyTests : IDisposable
     [Fact]
     public async Task PayLoad_Works_With_Reserved_Word_Table()
     {
-        // CE-7: 'changetable(changes [Order], ...)' con identificadores
-        // escapados (tabla con palabra reservada).
+        // CE-7: 'changetable(changes [Order], ...)' with escaped identifiers
+        // (table with a reserved word).
         TestTables.CreateCtOrder(_connection);
         var dep = _db.GetTableDependency(typeof(CtOrderItem), ChangeTrackingPriority.Realtime);
         var tcs = new TaskCompletionSource<DeltaChanges>(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -174,14 +175,14 @@ public class TableDependencyTests : IDisposable
     [Fact]
     public async Task Dispose_Stops_Delivery_And_PayLoad_Returns_Error()
     {
-        // SD-17: al disponer la dependencia se completa el canal, no se entregan
-        // mas deltas y PayLoad devuelve error.
+        // SD-17: disposing the dependency completes the channel, no more
+        // deltas are delivered, and PayLoad returns an error.
         var dep = _db.GetTableDependency(typeof(CtItem), ChangeTrackingPriority.Realtime);
         var received = 0;
         dep.OnChanged += (_, _) => Interlocked.Increment(ref received);
 
         dep.Dispose();
-        dep.Dispose(); // idempotente
+        dep.Dispose(); // idempotent
 
         _connection.Insert(new CtItem { Name = "A", Quantity = 1 });
 
@@ -196,17 +197,17 @@ public class TableDependencyTests : IDisposable
     [Fact]
     public void Database_Dispose_Is_Idempotent_And_External_Dispose_Is_NoOp()
     {
-        // SD-17: solo el Database raiz dispone el cycle service; los hijos
-        // (compartidos y cacheados) son no-op.
+        // SD-17: only the root Database disposes the cycle service; the child
+        // databases (shared and cached) are no-ops.
         var db = new SqlDb(_connection.ConnectionString);
-        db.GetTableDependency(typeof(CtItem), ChangeTrackingPriority.Realtime); // arranca el bucle
+        db.GetTableDependency(typeof(CtItem), ChangeTrackingPriority.Realtime); // starts the loop
 
         var ext = db.FactoryExternalDatabase("master");
         ext.Dispose();
-        Assert.NotNull(ext.FactoryConnection()); // el hijo sigue siendo utilizable
+        Assert.NotNull(ext.FactoryConnection()); // the child database is still usable
 
         db.Dispose();
-        db.Dispose(); // idempotente
+        db.Dispose(); // idempotent
     }
 
     [Fact]
@@ -227,8 +228,8 @@ public class TableDependencyTests : IDisposable
     [Fact]
     public void Repository_Dispose_Unsubscribes_From_TableDependency()
     {
-        // SD-17: el repo se desuscribe del change tracking al disponerse; la
-        // dependencia y la BD compartidas siguen vivas.
+        // SD-17: disposing the repository unsubscribes it from change
+        // tracking; the shared dependency and database stay alive.
         var repo = new CtRepo(_db);
         var dep = repo.TableDependency;
         Assert.Equal(1, HandlerCount(dep));
@@ -236,12 +237,12 @@ public class TableDependencyTests : IDisposable
         repo.Dispose();
 
         Assert.Equal(0, HandlerCount(dep));
-        Assert.False(dep.PayLoad().IsFailed); // la dependencia sigue operativa
+        Assert.False(dep.PayLoad().IsFailed); // the dependency is still operational
     }
 
     private static int HandlerCount(SqlTableDependency dep)
     {
-        // El backing field de un event field-like es privado.
+        // The backing field of a field-like event is private.
         var field = typeof(SqlTableDependency).GetField("OnChanged", BindingFlags.Instance | BindingFlags.NonPublic)!;
         var del = (Delegate?)field.GetValue(dep);
         return del?.GetInvocationList().Length ?? 0;

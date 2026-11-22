@@ -8,12 +8,12 @@ namespace Rop.Database;
 public partial class AbsDatabase
 {
 
-    // ===== UnitOfWork síncrono: 8 combinaciones =====
-    // Entradas: Solo Conn / Conn + Tr
-    // Salidas de la función: Result<T> / EnumerableResult<T> / IEnumerable<T> / T?
-    // (IEnumerable<T> y T? se envuelven para poder devolver el error y hacer rollback)
+    // ===== Synchronous UnitOfWork: 8 combinations =====
+    // Inputs: Conn only / Conn + Tr
+    // Function outputs: Result<T> / EnumerableResult<T> / IEnumerable<T> / T?
+    // (IEnumerable<T> and T? are wrapped so the error can be returned and rollback performed)
     //
-    // Solo Conn:
+    // Conn only:
     //  1. Conn -> Result<T>
     //  2. Conn -> EnumerableResult<T>
     //  3. Conn -> IEnumerable<T>
@@ -26,21 +26,21 @@ public partial class AbsDatabase
 
 
 
-    // Normaliza la cancelación del token del llamador.
+    // Normalizes cancellation of the caller's token.
     //
-    // La cancelación se propaga como EXCEPCIÓN (OperationCanceledException) y no como Error:
-    // es una señal de flujo de control, no un fallo de negocio. El llamador la distingue
-    // de los errores porque la excepción lleva asociado el token (e.CancellationToken).
+    // Cancellation is propagated as an EXCEPTION (OperationCanceledException) and not as an Error:
+    // it is a control-flow signal, not a business failure. The caller distinguishes it
+    // from errors because the exception carries the associated token (e.CancellationToken).
     //
-    // Los proveedores (p. ej. SqlClient) pueden manifestar la cancelación como SqlException
-    // en lugar de OperationCanceledException, por lo que aquí se normaliza a una única forma:
+    // Providers (e.g. SqlClient) may surface cancellation as a SqlException
+    // instead of an OperationCanceledException, so here it is normalized to a single form:
     //
-    // - Si la excepción YA es OperationCanceledException, se relanza tal cual mediante
-    //   ExceptionDispatchInfo.Throw para conservar su stack trace original.
-    //   (No se puede usar `throw;` porque este método es un helper y no está dentro del catch.)
-    // - Si es cualquier otra excepción (p. ej. una SqlException provocada por la cancelación),
-    //   se envuelve en una nueva OperationCanceledException con la excepción como inner
-    //   y el token asociado.
+    // - If the exception is ALREADY an OperationCanceledException, it is rethrown as-is via
+    //   ExceptionDispatchInfo.Throw to preserve its original stack trace.
+    //   (`throw;` cannot be used because this method is a helper and is not inside the catch.)
+    // - If it is any other exception (e.g. a SqlException caused by the cancellation),
+    //   it is wrapped in a new OperationCanceledException with the exception as inner
+    //   and the token attached.
     private static Exception _toCancellation(Exception ex, CancellationToken ct)
     {
         if (ex is OperationCanceledException) ExceptionDispatchInfo.Throw(ex);
@@ -81,21 +81,21 @@ public partial class AbsDatabase
             return Error.Exception(new Exception($"Error rolling back transaction. Original exception: {ex.Value}. Rollback exception: {e.Message}", e));
         }
     }
-    // AB-8: rollback "silencioso" cuando se va a reintentar la operación con una
-    // conexión/transacción nuevas: el fallo del rollback no debe impedir el reintento.
+    // AB-8: "silent" rollback when the operation is about to be retried with a new
+    // connection/transaction: a rollback failure must not prevent the retry.
     private static void _silentRollBack(DbTransaction tr)
     {
-        try { tr.Rollback(); } catch { /* se ignora: la conexión está condenada y se reintenta con una nueva */ }
+        try { tr.Rollback(); } catch { /* ignored: the connection is doomed and will be retried with a new one */ }
     }
     private static async Task _silentRollBackAsync(DbTransaction tr)
     {
-        try { await tr.RollbackAsync(); } catch { /* se ignora: la conexión está condenada y se reintenta con una nueva */ }
+        try { await tr.RollbackAsync(); } catch { /* ignored: the connection is doomed and will be retried with a new one */ }
     }
 
-    // AB-8: los _catch convierten las excepciones en Result fallido, PERO relanzan
-    // las transitorias para que el core de UnitOfWork decida si reintenta
-    // (con el número de intento) o desiste. Así la clasificación transitoria
-    // no se pierde en el envoltorio.
+    // AB-8: the _catch helpers convert exceptions into a failed Result, BUT rethrow
+    // the transient ones so the UnitOfWork core decides whether to retry
+    // (with the attempt number) or give up. This way the transient classification
+    // is not lost in the wrapper.
     private Result<T> _catch<T>(DbConnection conn,DbTransaction tr, Func<DbConnection, DbTransaction, T> funcion)
     {
         try
@@ -206,13 +206,13 @@ public partial class AbsDatabase
         }
     }
 
-    // ===== Cores síncronos (lógica transaccional, una sola vez) =====
-    // TR puede ser Result<R> o EnumerableResult<R> (ambos heredan de AbsResult).
+    // ===== Synchronous cores (transactional logic, defined once) =====
+    // TR can be Result<R> or EnumerableResult<R> (both inherit from AbsResult).
 
     private TR _UnitOfWorkWithTrCore<TR>(Func<DbConnection, DbTransaction, TR> funcion, Func<Error, TR> onFailed) where TR : AbsResult
     {
-        // AB-8: reintento ante errores transitorios. Cada intento usa conexión y
-        // transacción NUEVAS; un Result fallido (error de negocio) no se reintenta.
+        // AB-8: retry on transient errors. Each attempt uses a NEW connection and
+        // transaction; a failed Result (business error) is not retried.
         var policy = RetryPolicy;
         var attempt = 0;
         while (true)
@@ -262,8 +262,8 @@ public partial class AbsDatabase
 
     private TR _UnitOfWorkNoTrCore<TR>(Func<DbConnection, TR> funcion, Func<Error, TR> onFailed) where TR : AbsResult
     {
-        // AB-8: reintento ante errores transitorios (lecturas; los writes internos
-        // van por la ruta transaccional). Cada intento usa una conexión NUEVA.
+        // AB-8: retry on transient errors (reads; internal writes
+        // go through the transactional path). Each attempt uses a NEW connection.
         var policy = RetryPolicy;
         var attempt = 0;
         while (true)
@@ -303,7 +303,7 @@ public partial class AbsDatabase
         }
     }
 
-    // ===== Las 8 combinaciones síncronas (adaptadores finos sobre los cores) =====
+    // ===== The 8 synchronous combinations (thin adapters over the cores) =====
 
     // 5. (Conn, Tr) -> Result<T>
     private Result<R> _UnitOfWorkWithTr<R, T>(Func<DbConnection, DbTransaction, Result<T>> funcion, Func<T, R> map)
@@ -311,7 +311,7 @@ public partial class AbsDatabase
         return _UnitOfWorkWithTrCore((conn, tr) => funcion(conn, tr).Map(map), e => e);
     }
 
-    // 8. (Conn, Tr) -> T  → envuelto en Result<T> para poder hacer rollback en caso de error
+    // 8. (Conn, Tr) -> T  → wrapped in Result<T> so rollback can be performed on error
     private Result<R> _UnitOfWorkWithTr<R, T>(Func<DbConnection, DbTransaction, T> funcion, Func<T, R> map)
     {
         return _UnitOfWorkWithTrCore((conn, tr) => _catch(conn, tr, funcion).Map(map), e => e);
@@ -323,7 +323,7 @@ public partial class AbsDatabase
         return _UnitOfWorkWithTrCore((conn, tr) => funcion(conn, tr).Map(map), e => e);
     }
 
-    // 7. (Conn, Tr) -> IEnumerable<T>  → envuelto en EnumerableResult<T> para poder hacer rollback en caso de error
+    // 7. (Conn, Tr) -> IEnumerable<T>  → wrapped in EnumerableResult<T> so rollback can be performed on error
     private EnumerableResult<R> _UnitOfWorkWithTr<R, T>(Func<DbConnection, DbTransaction, IEnumerable<T>> funcion, Func<T, R> map)
     {
         return _UnitOfWorkWithTrCore((conn, tr) => _catchEnumerable(conn, tr, funcion).Map(map), e => e);
@@ -335,7 +335,7 @@ public partial class AbsDatabase
         return _UnitOfWorkNoTrCore(conn => funcion(conn).Map(map), e => e);
     }
 
-    // 4. Conn -> T?  → envuelto en Result<T> para poder devolver el error en caso de excepción
+    // 4. Conn -> T?  → wrapped in Result<T> so the error can be returned on exception
     private Result<R> _UnitOfWorkNoTr<R, T>(Func<DbConnection, T?> funcion, Func<T, R> map)
     {
         return _UnitOfWorkNoTrCore(conn => _catch(conn, funcion).Map(map), e => e);
@@ -347,47 +347,47 @@ public partial class AbsDatabase
         return _UnitOfWorkNoTrCore(conn => funcion(conn).Map(map), e => e);
     }
 
-    // 3. Conn -> IEnumerable<T>  → envuelto en EnumerableResult<T> para poder devolver el error en caso de excepción
+    // 3. Conn -> IEnumerable<T>  → wrapped in EnumerableResult<T> so the error can be returned on exception
     private EnumerableResult<R> _UnitOfWorkNoTr<R, T>(Func<DbConnection, IEnumerable<T>> funcion, Func<T, R> map)
     {
         return _UnitOfWorkNoTrCore(conn => _catchEnumerable(conn, funcion).Map(map), e => e);
     }
 
-    // ===== Async: 16 combinaciones =====
-    // Entradas: Solo Conn / Conn + Tr
-    // Salidas de la función: Result<T> / EnumerableResult<T> / IEnumerable<T> / T?
-    // La función puede aceptar o no CancellationToken (2 variantes).
+    // ===== Async: 16 combinations =====
+    // Inputs: Conn only / Conn + Tr
+    // Function outputs: Result<T> / EnumerableResult<T> / IEnumerable<T> / T?
+    // The function may or may not accept a CancellationToken (2 variants).
     //
-    // Solo Conn:
-    //  1. Conn -> Result<T>                       (sin ct)
-    //  2. Conn -> Result<T>                       (con ct)
-    //  3. Conn -> EnumerableResult<T>             (sin ct)
-    //  4. Conn -> EnumerableResult<T>             (con ct)
-    //  5. Conn -> IEnumerable<T>                  (sin ct)
-    //  6. Conn -> IEnumerable<T>                  (con ct)
-    //  7. Conn -> T?                              (sin ct)
-    //  8. Conn -> T?                              (con ct)
+    // Conn only:
+    //  1. Conn -> Result<T>                       (no ct)
+    //  2. Conn -> Result<T>                       (with ct)
+    //  3. Conn -> EnumerableResult<T>             (no ct)
+    //  4. Conn -> EnumerableResult<T>             (with ct)
+    //  5. Conn -> IEnumerable<T>                  (no ct)
+    //  6. Conn -> IEnumerable<T>                  (with ct)
+    //  7. Conn -> T?                              (no ct)
+    //  8. Conn -> T?                              (with ct)
     // Conn + Tr:
-    //  9.  (Conn, Tr) -> Result<T>                (sin ct)
-    // 10.  (Conn, Tr) -> Result<T>                (con ct)
-    // 11.  (Conn, Tr) -> EnumerableResult<T>      (sin ct)
-    // 12.  (Conn, Tr) -> EnumerableResult<T>      (con ct)
-    // 13.  (Conn, Tr) -> IEnumerable<T>           (sin ct)
-    // 14.  (Conn, Tr) -> IEnumerable<T>           (con ct)
-    // 15.  (Conn, Tr) -> T?                       (sin ct)
-    // 16.  (Conn, Tr) -> T?                       (con ct)
+    //  9.  (Conn, Tr) -> Result<T>                (no ct)
+    // 10.  (Conn, Tr) -> Result<T>                (with ct)
+    // 11.  (Conn, Tr) -> EnumerableResult<T>      (no ct)
+    // 12.  (Conn, Tr) -> EnumerableResult<T>      (with ct)
+    // 13.  (Conn, Tr) -> IEnumerable<T>           (no ct)
+    // 14.  (Conn, Tr) -> IEnumerable<T>           (with ct)
+    // 15.  (Conn, Tr) -> T?                       (no ct)
+    // 16.  (Conn, Tr) -> T?                       (with ct)
     //
-    // Decisiones: el rollback y el commit se ejecutan sin token (el rollback no debe
-    // quedarse a medias; el commit no debe dejar el resultado indeterminado).
+    // Decisions: rollback and commit run without a token (rollback must not be
+    // left half-done; commit must not leave the result indeterminate).
 
-    // ===== Cores asíncronos (lógica transaccional, una sola vez) =====
-    // TR puede ser Result<R> o EnumerableResult<R> (ambos heredan de AbsResult).
+    // ===== Async cores (transactional logic, defined once) =====
+    // TR can be Result<R> or EnumerableResult<R> (both inherit from AbsResult).
 
     private async Task<TR> _UnitOfWorkWithTrCoreAsync<TR>(Func<DbConnection, DbTransaction, CancellationToken, Task<TR>> funcion, Func<Error, TR> onFailed, CancellationToken ct) where TR : AbsResult
     {
-        // AB-8: reintento ante errores transitorios. Cada intento usa conexión y
-        // transacción NUEVAS; un Result fallido (error de negocio) no se reintenta.
-        // La cancelación tiene prioridad sobre el reintento.
+        // AB-8: retry on transient errors. Each attempt uses a NEW connection and
+        // transaction; a failed Result (business error) is not retried.
+        // Cancellation takes priority over retry.
         var policy = RetryPolicy;
         var attempt = 0;
         while (true)
@@ -404,14 +404,14 @@ public partial class AbsDatabase
                     {
                         var res = await funcion(conn, tr, ct);
                         if (res.IsFailed) return onFailed(await _tryRollBackAsync(tr, res.Error!));
-                        // Commit sin token: si se cancelara durante el commit el resultado quedaría indeterminado.
+                        // Commit without a token: if it were cancelled during the commit, the result would be indeterminate.
                         await tr.CommitAsync();
                         return res;
                     }
                     catch (Exception ex) when (ct.IsCancellationRequested)
                     {
                         try { await tr.RollbackAsync(); }
-                        catch (Exception rbex) { Debug.WriteLine($"Rollback fallido tras cancelación: {rbex.Message}"); }
+                        catch (Exception rbex) { Debug.WriteLine($"Rollback failed after cancellation: {rbex.Message}"); }
                         throw _toCancellation(ex, ct);
                     }
                     catch (Exception ex)
@@ -446,51 +446,51 @@ public partial class AbsDatabase
         }
     }
 
-    // ===== Adaptadores WithTr (8) =====
+    // ===== WithTr adapters (8) =====
 
-    // 9. (Conn, Tr) -> Result<T> (sin ct)
+    // 9. (Conn, Tr) -> Result<T> (no ct)
     private Task<Result<R>> _UnitOfWorkWithTrResultAsync<R, T>(Func<DbConnection, DbTransaction, Task<Result<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkWithTrCoreAsync(async (conn, tr, _) => (await funcion(conn, tr)).Map(map), e => e, ct);
     }
 
-    // 10. (Conn, Tr) -> Result<T> (con ct)
+    // 10. (Conn, Tr) -> Result<T> (with ct)
     private Task<Result<R>> _UnitOfWorkWithTrResultAsync<R, T>(Func<DbConnection, DbTransaction, CancellationToken, Task<Result<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkWithTrCoreAsync(async (conn, tr, c) => (await funcion(conn, tr, c)).Map(map), e => e, ct);
     }
 
-    // 15. (Conn, Tr) -> T? (sin ct)
+    // 15. (Conn, Tr) -> T? (no ct)
     private Task<Result<R>> _UnitOfWorkWithTrValueAsync<R, T>(Func<DbConnection, DbTransaction, Task<T>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkWithTrCoreAsync(async (conn, tr, c) => (await _catchAsync(conn, tr, c, (conn2, tr2, _) => funcion(conn2, tr2))).Map(map), e => e, ct);
     }
 
-    // 16. (Conn, Tr) -> T? (con ct)
+    // 16. (Conn, Tr) -> T? (with ct)
     private Task<Result<R>> _UnitOfWorkWithTrValueAsync<R, T>(Func<DbConnection, DbTransaction, CancellationToken, Task<T>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkWithTrCoreAsync(async (conn, tr, c) => (await _catchAsync(conn, tr, c, funcion)).Map(map), e => e, ct);
     }
 
-    // 11. (Conn, Tr) -> EnumerableResult<T> (sin ct)
+    // 11. (Conn, Tr) -> EnumerableResult<T> (no ct)
     private Task<EnumerableResult<R>> _UnitOfWorkWithTrEnumerableResultAsync<R, T>(Func<DbConnection, DbTransaction, Task<EnumerableResult<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkWithTrCoreAsync(async (conn, tr, _) => (await funcion(conn, tr)).Map(map), e => e, ct);
     }
 
-    // 12. (Conn, Tr) -> EnumerableResult<T> (con ct)
+    // 12. (Conn, Tr) -> EnumerableResult<T> (with ct)
     private Task<EnumerableResult<R>> _UnitOfWorkWithTrEnumerableResultAsync<R, T>(Func<DbConnection, DbTransaction, CancellationToken, Task<EnumerableResult<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkWithTrCoreAsync(async (conn, tr, c) => (await funcion(conn, tr, c)).Map(map), e => e, ct);
     }
 
-    // 13. (Conn, Tr) -> IEnumerable<T> (sin ct)
+    // 13. (Conn, Tr) -> IEnumerable<T> (no ct)
     private Task<EnumerableResult<R>> _UnitOfWorkWithTrEnumerableAsync<R, T>(Func<DbConnection, DbTransaction, Task<IEnumerable<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkWithTrCoreAsync(async (conn, tr, c) => (await _catchEnumerableAsync(conn, tr, c, (conn2, tr2, _) => funcion(conn2, tr2))).Map(map), e => e, ct);
     }
 
-    // 14. (Conn, Tr) -> IEnumerable<T> (con ct)
+    // 14. (Conn, Tr) -> IEnumerable<T> (with ct)
     private Task<EnumerableResult<R>> _UnitOfWorkWithTrEnumerableAsync<R, T>(Func<DbConnection, DbTransaction, CancellationToken, Task<IEnumerable<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkWithTrCoreAsync(async (conn, tr, c) => (await _catchEnumerableAsync(conn, tr, c, funcion)).Map(map), e => e, ct);
@@ -498,9 +498,9 @@ public partial class AbsDatabase
 
     private async Task<TR> _UnitOfWorkNoTrCoreAsync<TR>(Func<DbConnection, CancellationToken, Task<TR>> funcion, Func<Error, TR> onFailed, CancellationToken ct) where TR : AbsResult
     {
-        // AB-8: reintento ante errores transitorios (lecturas; los writes internos
-        // van por la ruta transaccional). Cada intento usa una conexión NUEVA.
-        // La cancelación tiene prioridad sobre el reintento.
+        // AB-8: retry on transient errors (reads; internal writes
+        // go through the transactional path). Each attempt uses a NEW connection.
+        // Cancellation takes priority over retry.
         var policy = RetryPolicy;
         var attempt = 0;
         while (true)
@@ -548,51 +548,51 @@ public partial class AbsDatabase
         }
     }
 
-    // ===== Adaptadores NoTr (8) =====
+    // ===== NoTr adapters (8) =====
 
-    // 1. Conn -> Result<T> (sin ct)
+    // 1. Conn -> Result<T> (no ct)
     private Task<Result<R>> _UnitOfWorkNoTrResultAsync<R, T>(Func<DbConnection, Task<Result<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkNoTrCoreAsync(async (conn, _) => (await funcion(conn)).Map(map), e => e, ct);
     }
 
-    // 2. Conn -> Result<T> (con ct)
+    // 2. Conn -> Result<T> (with ct)
     private Task<Result<R>> _UnitOfWorkNoTrResultAsync<R, T>(Func<DbConnection, CancellationToken, Task<Result<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkNoTrCoreAsync(async (conn, c) => (await funcion(conn, c)).Map(map), e => e, ct);
     }
 
-    // 7. Conn -> T? (sin ct)
+    // 7. Conn -> T? (no ct)
     private Task<Result<R>> _UnitOfWorkNoTrValueAsync<R, T>(Func<DbConnection, Task<T?>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkNoTrCoreAsync(async (conn, c) => (await _catchAsync(conn, c, (conn2, _) => funcion(conn2))).Map(map), e => e, ct);
     }
 
-    // 8. Conn -> T? (con ct)
+    // 8. Conn -> T? (with ct)
     private Task<Result<R>> _UnitOfWorkNoTrValueAsync<R, T>(Func<DbConnection, CancellationToken, Task<T?>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkNoTrCoreAsync(async (conn, c) => (await _catchAsync(conn, c, funcion)).Map(map), e => e, ct);
     }
 
-    // 3. Conn -> EnumerableResult<T> (sin ct)
+    // 3. Conn -> EnumerableResult<T> (no ct)
     private Task<EnumerableResult<R>> _UnitOfWorkNoTrEnumerableResultAsync<R, T>(Func<DbConnection, Task<EnumerableResult<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkNoTrCoreAsync(async (conn, _) => (await funcion(conn)).Map(map), e => e, ct);
     }
 
-    // 4. Conn -> EnumerableResult<T> (con ct)
+    // 4. Conn -> EnumerableResult<T> (with ct)
     private Task<EnumerableResult<R>> _UnitOfWorkNoTrEnumerableResultAsync<R, T>(Func<DbConnection, CancellationToken, Task<EnumerableResult<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkNoTrCoreAsync(async (conn, c) => (await funcion(conn, c)).Map(map), e => e, ct);
     }
 
-    // 5. Conn -> IEnumerable<T> (sin ct)
+    // 5. Conn -> IEnumerable<T> (no ct)
     private Task<EnumerableResult<R>> _UnitOfWorkNoTrEnumerableAsync<R, T>(Func<DbConnection, Task<IEnumerable<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkNoTrCoreAsync(async (conn, c) => (await _catchEnumerableAsync(conn, c, (conn2, _) => funcion(conn2))).Map(map), e => e, ct);
     }
 
-    // 6. Conn -> IEnumerable<T> (con ct)
+    // 6. Conn -> IEnumerable<T> (with ct)
     private Task<EnumerableResult<R>> _UnitOfWorkNoTrEnumerableAsync<R, T>(Func<DbConnection, CancellationToken, Task<IEnumerable<T>>> funcion, Func<T, R> map, CancellationToken ct)
     {
         return _UnitOfWorkNoTrCoreAsync(async (conn, c) => (await _catchEnumerableAsync(conn, c, funcion)).Map(map), e => e, ct);

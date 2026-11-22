@@ -4,84 +4,84 @@ public partial class AbsDatabase
 {
     // Delete partial-key
     /// <summary>
-    /// Elimina filas de la tabla asociada al tipo <typeparamref name="T"/> usando una clave parcial.
+    /// Deletes rows from the table associated with type <typeparamref name="T"/> using a partial key.
     /// </summary>
-    /// <typeparam name="T">Tipo de entidad cuya tabla contiene la clave parcial.</typeparam>
-    /// <param name="id">Valor de la clave parcial a eliminar.</param>
-    /// <returns>Resultado con el número de filas afectadas.</returns>
+    /// <typeparam name="T">Entity type whose table contains the partial key.</typeparam>
+    /// <param name="id">Value of the partial key to delete.</param>
+    /// <returns>Result with the number of affected rows.</returns>
     public Result<int> DeleteByPartialKey<T>(object id) where T : class
         => UnitOfWorkSingle((conn, tr) => conn.DeleteByPartialKey<T>(id, tr));
 
     /// <summary>
-    /// Elimina filas (async) de la tabla asociada al tipo <typeparamref name="T"/> usando una clave parcial.
+    /// Deletes rows (async) from the table associated with type <typeparamref name="T"/> using a partial key.
     /// </summary>
-    /// <typeparam name="T">Tipo de entidad cuya tabla contiene la clave parcial.</typeparam>
-    /// <param name="id">Valor de la clave parcial a eliminar.</param>
-    /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
-    /// <returns>Resultado asíncrono con el número de filas afectadas.</returns>
+    /// <typeparam name="T">Entity type whose table contains the partial key.</typeparam>
+    /// <param name="id">Value of the partial key to delete.</param>
+    /// <param name="cancellationToken">Cancellation token propagated to the connection and the transaction.</param>
+    /// <returns>Async result with the number of affected rows.</returns>
     public Task<Result<int>> DeleteByPartialKeyAsync<T>(object id, CancellationToken cancellationToken = default) where T : class
         => UnitOfWorkSingleAsync((conn, tr) => conn.DeleteByPartialKeyAsync<T>(id, tr), cancellationToken);
 
     // Insert no key attributes
     /// <summary>
-    /// Inserta una entidad omitiendo atributos de clave (inserción que ignora atributos de key etiquetados).
+    /// Inserts an entity omitting key attributes (an insert that ignores tagged key attributes).
     /// </summary>
-    /// <typeparam name="T">Tipo de la entidad a insertar.</typeparam>
-    /// <param name="item">Entidad a insertar.</param>
-    /// <returns>Resultado con el número de filas afectadas.</returns>
+    /// <typeparam name="T">Type of the entity to insert.</typeparam>
+    /// <param name="item">Entity to insert.</param>
+    /// <returns>Result with the number of affected rows.</returns>
     public Result<int> InsertNoKeyAtt<T>(T item) where T : class
         => UnitOfWorkSingle((conn, tr) => conn.InsertNoKeyAtt<T>(item, tr));
 
     /// <summary>
-    /// Inserta una entidad (async) omitiendo atributos de clave.
+    /// Inserts an entity (async) omitting key attributes.
     /// </summary>
-    /// <typeparam name="T">Tipo de la entidad a insertar.</typeparam>
-    /// <param name="item">Entidad a insertar.</param>
-    /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
-    /// <returns>Resultado asíncrono con el número de filas afectadas.</returns>
+    /// <typeparam name="T">Type of the entity to insert.</typeparam>
+    /// <param name="item">Entity to insert.</param>
+    /// <param name="cancellationToken">Cancellation token propagated to the connection and the transaction.</param>
+    /// <returns>Async result with the number of affected rows.</returns>
     public Task<Result<int>> InsertNoKeyAttAsync<T>(T item, CancellationToken cancellationToken = default) where T : class
         => UnitOfWorkSingleAsync<int>((conn, tr) => conn.InsertNoKeyAttAsync<T>(item, tr), cancellationToken);
 
     // Insert or update with MERGE
     /// <summary>
-    /// Inserta o actualiza una entidad usando la estrategia MERGE definida en las extensiones.
+    /// Inserts or updates an entity using the MERGE strategy defined in the extensions.
     /// </summary>
-    /// <typeparam name="T">Tipo de la entidad.</typeparam>
-    /// <param name="item">Entidad a insertar o actualizar.</param>
-    /// <returns>Resultado con la clave o número de filas afectadas según la implementación.</returns>
+    /// <typeparam name="T">Entity type.</typeparam>
+    /// <param name="item">Entity to insert or update.</param>
+    /// <returns>Result with the key or number of affected rows depending on the implementation.</returns>
     public Result<int> InsertOrUpdateMerge<T>(T item) where T : class
         => UnitOfWorkSingle((conn, tr) => conn.InsertOrUpdateMerge<T>(item, tr));
 
     /// <summary>
-    /// Inserta o actualiza una entidad usando MERGE (async).
+    /// Inserts or updates an entity using MERGE (async).
     /// </summary>
-    /// <typeparam name="T">Tipo de la entidad.</typeparam>
-    /// <param name="item">Entidad a insertar o actualizar.</param>
-    /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
-    /// <returns>Resultado asíncrono con la clave o número de filas afectadas según la implementación.</returns>
+    /// <typeparam name="T">Entity type.</typeparam>
+    /// <param name="item">Entity to insert or update.</param>
+    /// <param name="cancellationToken">Cancellation token propagated to the connection and the transaction.</param>
+    /// <returns>Async result with the key or number of affected rows depending on the implementation.</returns>
     public Task<Result<int>> InsertOrUpdateMergeAsync<T>(T item, CancellationToken cancellationToken = default) where T : class
         => UnitOfWorkSingleAsync<int>((conn, tr) => conn.InsertOrUpdateMergeAsync<T>(item, tr), cancellationToken);
 
     // InsertOrUpdatePartial
     /// <summary>
-    /// Reemplaza (borra y vuelve a insertar) las filas relacionadas con la clave parcial <paramref name="id"/>
-    /// y luego inserta la lista de <paramref name="items"/> dentro de una transacción.
+    /// Replaces (deletes and re-inserts) the rows related to the partial key <paramref name="id"/>
+    /// and then inserts the list of <paramref name="items"/> within a transaction.
     /// </summary>
-    /// <typeparam name="T">Tipo de las entidades parciales.</typeparam>
-    /// <param name="id">Valor de la clave parcial a reemplazar.</param>
-    /// <param name="items">Lista de entidades a insertar.</param>
-    /// <returns>Resultado con true si todas las inserciones fueron realizadas correctamente.</returns>
+    /// <typeparam name="T">Type of the partial entities.</typeparam>
+    /// <param name="id">Value of the partial key to replace.</param>
+    /// <param name="items">List of entities to insert.</param>
+    /// <returns>Result with true if all inserts were performed successfully.</returns>
     public Result<bool> InsertOrUpdatePartial<T>(object id, IReadOnlyList<T> items) where T : class
         => UnitOfWorkSingle((conn, tr) => conn.InsertOrUpdatePartial<T>(id, items, tr));
 
     /// <summary>
-    /// Reemplaza las filas relacionadas con la clave parcial y reinserta las <paramref name="items"/> (async).
+    /// Replaces the rows related to the partial key and re-inserts the <paramref name="items"/> (async).
     /// </summary>
-    /// <typeparam name="T">Tipo de las entidades parciales.</typeparam>
-    /// <param name="id">Valor de la clave parcial a reemplazar.</param>
-    /// <param name="items">Lista de entidades a insertar.</param>
-    /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
-    /// <returns>Resultado asíncrono con true si todas las inserciones fueron realizadas correctamente.</returns>
+    /// <typeparam name="T">Type of the partial entities.</typeparam>
+    /// <param name="id">Value of the partial key to replace.</param>
+    /// <param name="items">List of entities to insert.</param>
+    /// <param name="cancellationToken">Cancellation token propagated to the connection and the transaction.</param>
+    /// <returns>Async result with true if all inserts were performed successfully.</returns>
     public Task<Result<bool>> InsertOrUpdatePartialAsync<T>(object id, IReadOnlyList<T> items, CancellationToken cancellationToken = default) where T : class
         => UnitOfWorkSingleAsync<bool>(async (conn, tr) =>
         {
@@ -91,75 +91,75 @@ public partial class AbsDatabase
 
     // UpdateIdValue async
     /// <summary>
-    /// Actualiza el valor de un campo para la fila con la clave <paramref name="id"/> (async).
+    /// Updates the value of a field for the row with key <paramref name="id"/> (async).
     /// </summary>
-    /// <typeparam name="DB">Tipo que describe la tabla objetivo (usado para resolver metadatos).</typeparam>
-    /// <typeparam name="T">Tipo del valor a asignar.</typeparam>
-    /// <param name="id">Valor de la clave de fila a actualizar.</param>
-    /// <param name="value">Nuevo valor a establecer.</param>
-    /// <param name="field">Nombre del campo a actualizar.</param>
-    /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
-    /// <returns>Resultado asíncrono con true si se actualizó exactamente una fila.</returns>
+    /// <typeparam name="DB">Type describing the target table (used to resolve metadata).</typeparam>
+    /// <typeparam name="T">Type of the value to assign.</typeparam>
+    /// <param name="id">Value of the row key to update.</param>
+    /// <param name="value">New value to set.</param>
+    /// <param name="field">Name of the field to update.</param>
+    /// <param name="cancellationToken">Cancellation token propagated to the connection and the transaction.</param>
+    /// <returns>Async result with true if exactly one row was updated.</returns>
     public Task<Result<bool>> UpdateIdValueAsync<DB, T>(object id, T value, string field, CancellationToken cancellationToken = default)
         => UnitOfWorkSingleAsync<bool>((conn, tr) => conn.UpdateIdValueAsync<DB, T>(id, value, field, tr), cancellationToken);
 
     // GetPartial / GetPartial2
     /// <summary>
-    /// Obtiene una entidad parcial identificada por dos claves (id1, id2).
+    /// Gets a partial entity identified by two keys (id1, id2).
     /// </summary>
-    /// <typeparam name="T">Tipo de la entidad a recuperar.</typeparam>
-    /// <param name="id1">Valor de la primera clave.</param>
-    /// <param name="id2">Valor de la segunda clave.</param>
-    /// <returns>Resultado con la entidad si existe, o null en caso contrario.</returns>
+    /// <typeparam name="T">Type of the entity to retrieve.</typeparam>
+    /// <param name="id1">Value of the first key.</param>
+    /// <param name="id2">Value of the second key.</param>
+    /// <returns>Result with the entity if it exists, or null otherwise.</returns>
     public Result<T> GetPartial<T>(object id1, object id2) where T : class
         => UnitOfWorkSingle(conn => conn.GetPartial<T>(id1, id2));
 
     /// <summary>
-    /// Obtiene una entidad parcial identificada por dos claves (id1, id2) (async).
+    /// Gets a partial entity identified by two keys (id1, id2) (async).
     /// </summary>
-    /// <typeparam name="T">Tipo de la entidad a recuperar.</typeparam>
-    /// <param name="id1">Valor de la primera clave.</param>
-    /// <param name="id2">Valor de la segunda clave.</param>
-    /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
-    /// <returns>Resultado asíncrono con la entidad si existe, o null en caso contrario.</returns>
+    /// <typeparam name="T">Type of the entity to retrieve.</typeparam>
+    /// <param name="id1">Value of the first key.</param>
+    /// <param name="id2">Value of the second key.</param>
+    /// <param name="cancellationToken">Cancellation token propagated to the connection and the transaction.</param>
+    /// <returns>Async result with the entity if it exists, or null otherwise.</returns>
     public Task<Result<T>> GetPartialAsync<T>(object id1, object id2, CancellationToken cancellationToken = default) where T : class
         => UnitOfWorkSingleAsync(conn => conn.GetPartialAsync<T>(id1, id2), cancellationToken);
 
     /// <summary>
-    /// Obtiene múltiples entidades parciales que coinciden con la clave <paramref name="id"/>.
+    /// Gets multiple partial entities matching the key <paramref name="id"/>.
     /// </summary>
-    /// <typeparam name="T">Tipo de las entidades a recuperar.</typeparam>
-    /// <param name="id">Valor de la clave parcial.</param>
-    /// <returns>Enumeración de entidades encontradas.</returns>
+    /// <typeparam name="T">Type of the entities to retrieve.</typeparam>
+    /// <param name="id">Value of the partial key.</param>
+    /// <returns>Enumeration of the entities found.</returns>
     public EnumerableResult<T> GetPartial<T>(object id) where T : class
         => UnitOfWork(conn => conn.GetPartial<T>(id).ToList());
 
     /// <summary>
-    /// Obtiene múltiples entidades parciales que coinciden con la clave <paramref name="id"/> (async).
+    /// Gets multiple partial entities matching the key <paramref name="id"/> (async).
     /// </summary>
-    /// <typeparam name="T">Tipo de las entidades a recuperar.</typeparam>
-    /// <param name="id">Valor de la clave parcial.</param>
-    /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
-    /// <returns>Enumeración asíncrona de entidades encontradas.</returns>
+    /// <typeparam name="T">Type of the entities to retrieve.</typeparam>
+    /// <param name="id">Value of the partial key.</param>
+    /// <param name="cancellationToken">Cancellation token propagated to the connection and the transaction.</param>
+    /// <returns>Async enumeration of the entities found.</returns>
     public Task<EnumerableResult<T>> GetPartialAsync<T>(object id, CancellationToken cancellationToken = default) where T : class
         => UnitOfWorkAsync(conn => conn.GetPartialAsync<T>(id), cancellationToken);
 
     /// <summary>
-    /// Obtiene múltiples entidades parciales que coinciden con la segunda clave parcial.
+    /// Gets multiple partial entities matching the second partial key.
     /// </summary>
-    /// <typeparam name="T">Tipo de las entidades a recuperar.</typeparam>
-    /// <param name="id">Valor de la segunda clave parcial.</param>
-    /// <returns>Enumeración de entidades encontradas.</returns>
+    /// <typeparam name="T">Type of the entities to retrieve.</typeparam>
+    /// <param name="id">Value of the second partial key.</param>
+    /// <returns>Enumeration of the entities found.</returns>
     public EnumerableResult<T> GetPartial2<T>(object id) where T : class
         => UnitOfWork(conn => conn.GetPartial2<T>(id).ToList());
 
     /// <summary>
-    /// Obtiene múltiples entidades parciales que coinciden con la segunda clave parcial (async).
+    /// Gets multiple partial entities matching the second partial key (async).
     /// </summary>
-    /// <typeparam name="T">Tipo de las entidades a recuperar.</typeparam>
-    /// <param name="id">Valor de la segunda clave parcial.</param>
-    /// <param name="cancellationToken">Token de cancelación propagado a la conexión y la transacción.</param>
-    /// <returns>Enumeración asíncrona de entidades encontradas.</returns>
+    /// <typeparam name="T">Type of the entities to retrieve.</typeparam>
+    /// <param name="id">Value of the second partial key.</param>
+    /// <param name="cancellationToken">Cancellation token propagated to the connection and the transaction.</param>
+    /// <returns>Async enumeration of the entities found.</returns>
     public Task<EnumerableResult<T>> GetPartial2Async<T>(object id, CancellationToken cancellationToken = default) where T : class
         => UnitOfWorkAsync(conn => conn.GetPartial2Async<T>(id), cancellationToken);
 }

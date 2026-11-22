@@ -23,8 +23,8 @@ namespace Rop.Database11
         private readonly ILogger _logger;
         private bool _disposed;
         /// <summary>
-        /// Logger usado por la librería (change tracking, cycle tasks). Si no se
-        /// proporciona uno, se usa un fallback que escribe en Debug.Print.
+        /// Logger used by the library (change tracking, cycle tasks). If none is
+        /// provided, a fallback that writes to Debug.Print is used.
         /// </summary>
         public ILogger Logger => _logger;
         /// <summary>
@@ -96,8 +96,8 @@ namespace Rop.Database11
         public Database FactoryExternalDatabase(string databasename)
         {
             if (_foreignDatabaseInstances.TryGetValue(databasename, out var db)) return db;
-            // SD-1: Replace corrompia el connection string si el nombre de la BD
-            // aparecia en servidor/usuario/password. El builder solo toca InitialCatalog.
+            // SD-1: Replace corrupted the connection string if the DB name
+            // appeared in server/user/password. The builder only touches InitialCatalog.
             var builder = new SqlConnectionStringBuilder(Strconn) { InitialCatalog = databasename };
             db=new Database(builder.ConnectionString,this._parentdatabase,_logger);
             return db;
@@ -128,7 +128,7 @@ namespace Rop.Database11
         /// <exception cref="ArgumentException">Thrown when no table description is found for the type.</exception>
         public Database FactoryExternalDatabase<T>() where T: class
         {
-            // GE-3: error de programacion → excepcion con tipo concreto.
+            // GE-3: programming error → exception with a concrete type.
             var td = GetKeyDescription<T>() ?? throw new ArgumentException($"Table for {typeof(T).Name} not found");
             return FactoryExternalDatabase(td);
         }
@@ -150,7 +150,7 @@ namespace Rop.Database11
         /// <exception cref="ArgumentException">Thrown when no table description is found for the type.</exception>
         public DbConnection FactoryConnection<T>() where T:class
         {
-            // GE-3: error de programacion → excepcion con tipo concreto.
+            // GE-3: programming error → exception with a concrete type.
             var td = GetKeyDescription<T>()?? throw new ArgumentException($"Table for {typeof(T).Name} not found");
             return FactoryConnection(td);
         }
@@ -166,10 +166,10 @@ namespace Rop.Database11
             {
                 return FactoryExternalDatabase(databasename);
             }
-            // SD-18: cacheada por (base de datos, servidor) como el resto de
-            // sobrecargas, y como HIJO del root (comparte cycle tasks y se
-            // dispone con el): antes cada llamada creaba un root nuevo con sus
-            // propios cycle tasks (fuga de instancias/tareas).
+            // SD-18: cached by (database, server) like the other overloads, and as
+            // a CHILD of the root (shares cycle tasks and is disposed with it):
+            // previously every call created a new root with its own cycle tasks
+            // (instance/task leak).
             var key = databasename + "\u0000" + server;
             if (_foreignDatabasesPerServer.TryGetValue(key, out var cached)) return cached;
             var builder = new SqlConnectionStringBuilder(Strconn)

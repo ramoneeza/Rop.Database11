@@ -1,19 +1,19 @@
 namespace Rop.Database11.Repository
 {
     /// <summary>
-    /// Extension indexers para los repositorios (EI-1): permite leer entidades con
-    /// sintaxis de diccionario (<c>repo[key]</c>) en lugar de <c>repo.Get(key, out _)</c>.
+    /// Extension indexers for the repositories (EI-1): lets you read entities with
+    /// dictionary syntax (<c>repo[key]</c>) instead of <c>repo.Get(key, out _)</c>.
     /// </summary>
     /// <remarks>
-    /// Los extension indexers no modifican la interfaz (ningún implementador se rompe)
-    /// y conviven con el método <see cref="IAbsSimpleSqlRepository{T,K}.Get"/>.
-    /// El error de la operación queda disponible en <see cref="IAbsSimpleSqlRepository.LastError"/>.
+    /// The extension indexers do not modify the interface (no implementer breaks)
+    /// and coexist with the <see cref="IAbsSimpleSqlRepository{T,K}.Get"/> method.
+    /// The operation error remains available in <see cref="IAbsSimpleSqlRepository.LastError"/>.
     /// </remarks>
     public static class RepositoryIndexers
     {
         /// <summary>
-        /// Indexer de lectura por clave sobre cualquier repositorio simple (y sus
-        /// derivados: repositorios con change tracking, cache y parciales).
+        /// Read indexer by key over any simple repository (and its derivatives:
+        /// change tracking, cache and partial repositories).
         /// </summary>
         /// <typeparam name="T">Entity type.</typeparam>
         /// <typeparam name="K">Key type.</typeparam>

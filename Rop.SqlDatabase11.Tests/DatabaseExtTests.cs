@@ -102,8 +102,8 @@ public class DatabaseExtTests : IDisposable
     [Fact]
     public void InsertOrUpdatePartial_Sync_Fails_When_Table_Missing()
     {
-        // AB-5: la version sync devolvia true siempre; ahora propaga el fallo
-        // igual que la async.
+        // AB-5: the sync version used to always return true; it now propagates
+        // the failure just like the async one.
         var r = _db.InsertOrUpdatePartial<NoTablePartial>(1, new[]
         {
             new NoTablePartial { OwnerId = 1, Code = "A", Quantity = 1 }
@@ -232,7 +232,7 @@ public class DatabaseExtTests : IDisposable
         Assert.Single(r.Value!);
     }
 
-    // ==== DeleteAsync con clave string ====
+    // ==== DeleteAsync with string key ====
 
     [Fact]
     public async Task DeleteAsync_By_String_Key_Removes_Row()
@@ -256,7 +256,7 @@ public class DatabaseExtTests : IDisposable
         Assert.Equal(42, _connection.Get<ItemIntAuto>(1).Quantity);
     }
 
-    // ==== GetSomeSlim / GetSomeAsync con clave string ====
+    // ==== GetSomeSlim / GetSomeAsync with string key ====
 
     [Fact]
     public void GetSomeSlim_String_Ids_Returns_Found()

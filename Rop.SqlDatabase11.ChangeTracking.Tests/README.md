@@ -1,15 +1,15 @@
-# Pruebas de Change Tracking de Rop.SqlDatabase11
+# Rop.SqlDatabase11 Change Tracking Tests
 
-Pruebas del subsistema de Change Tracking: `GetDbVersion`, `GetTableChanges`, `VerifyNotify`, `SqlTableDependency` (evento `OnChanged`), tipos de cambios y handlers DateOnly/TimeOnly.
+Tests for the Change Tracking subsystem: `GetDbVersion`, `GetTableChanges`, `VerifyNotify`, `SqlTableDependency` (`OnChanged` event), change types, and the DateOnly/TimeOnly handlers.
 
-El fixture crea una base aislada con `CHANGE_TRACKING = ON` a nivel de base de datos; cada test habilita Change Tracking en sus propias tablas. Se necesita SQL Server (por defecto `(localdb)\MSSQLLocalDB`) con Change Tracking disponible (soportado en LocalDB/Express).
+The fixture creates an isolated database with `CHANGE_TRACKING = ON` at the database level; each test enables Change Tracking on its own tables. SQL Server is required (default `(localdb)\MSSQLLocalDB`) with Change Tracking available (supported on LocalDB/Express).
 
-## Ejecutar
+## Running
 
 ```powershell
 dotnet run --project .\Rop.SqlDatabase11.ChangeTracking.Tests\Rop.SqlDatabase11.ChangeTracking.Tests.csproj
 ```
 
-o `CI-CD\run-tests-ct.cmd`. Con la configuracion actual, `dotnet test` falla con el SDK .NET 11 porque Microsoft Testing Platform requiere una configuracion adicional en `global.json`.
+or `CI-CD\run-tests-ct.cmd`. With the current configuration, `dotnet test` fails with the .NET 11 SDK because Microsoft Testing Platform requires additional configuration in `global.json`.
 
-Variables de entorno: `ROPDB_TEST_SERVER` (instancia con autenticacion Windows) o `ROPDB_TEST_CONNECTION_STRING` (tiene prioridad; el fixture sustituye `Initial Catalog`).
+Environment variables: `ROPDB_TEST_SERVER` (instance with Windows authentication) or `ROPDB_TEST_CONNECTION_STRING` (takes precedence; the fixture replaces `Initial Catalog`).

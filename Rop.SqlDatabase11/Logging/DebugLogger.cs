@@ -4,9 +4,9 @@ using Microsoft.Extensions.Logging;
 namespace Rop.Database11.Logging;
 
 /// <summary>
-/// ILogger mínimo que escribe en <see cref="Debug.Print(string?)"/>.
-/// Se usa como fallback cuando el consumidor no proporciona un logger propio,
-/// preservando el comportamiento histórico de la librería.
+/// Minimal ILogger that writes to <see cref="Debug.Print(string?)"/>.
+/// Used as a fallback when the consumer does not provide its own logger,
+/// preserving the historical behavior of the library.
 /// </summary>
 internal sealed class DebugLogger : ILogger
 {

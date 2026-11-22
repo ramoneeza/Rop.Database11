@@ -93,8 +93,8 @@ public class OrderLine
 }
 
 /// <summary>
-/// CE-7: tabla con palabra reservada de T-SQL ('Order') y columna reservada
-/// ('User'), para Check<T> y wrappers con escapado.
+/// CE-7: table with a reserved T-SQL word ('Order') and reserved column
+/// ('User'), for Check<T> and wrappers with escaping.
 /// </summary>
 [Table("Order")]
 public class ReservedOrderItem

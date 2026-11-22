@@ -16,7 +16,7 @@ public class AbsDatabaseTests
     {
         var db = NewDb();
 
-        // FakeConnection.CreateDbCommand lanza NotSupportedException: simula un fallo de conexión.
+        // FakeConnection.CreateDbCommand throws NotSupportedException: simulates a connection failure.
         var res = db.QueryOne<ItemIntAuto>("SELECT * FROM ItemsIntAuto");
 
         Assert.True(res.IsFailed);
@@ -31,13 +31,13 @@ public class AbsDatabaseTests
 
         var res = db.ExecuteScalar<int>("SELECT COUNT(*) FROM ItemsIntAuto");
 
-        // Con el código roto devolvía Result<int> de ÉXITO con valor 0 (el error se perdía).
+        // With the broken code it returned a SUCCESSFUL Result<int> with value 0 (the error was lost).
         Assert.True(res.IsFailed);
         var error = Assert.IsType<ExceptionError>(res.Error);
         Assert.IsType<NotSupportedException>(error.Data);
     }
 
-    // ==== AB-7: propagación del CancellationToken ====
+    // ==== AB-7: CancellationToken propagation ====
 
     [Fact]
     public async Task GetAllAsync_With_Cancelled_Token_Throws_OperationCanceledException()

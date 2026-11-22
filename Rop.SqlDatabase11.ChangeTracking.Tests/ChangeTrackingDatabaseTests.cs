@@ -32,8 +32,8 @@ public class ChangeTrackingDatabaseTests : IDisposable
     [Fact]
     public void GetDbVersion_Returns_NonNegative_Value()
     {
-        // La version es global a la base de datos: puede ser > 0 si otros
-        // tests de la misma base ya hicieron DML.
+        // The version is global to the database: it can be > 0 if other
+        // tests against the same database already performed DML.
         var r = _db.GetDbVersion();
 
         Assert.False(r.IsFailed);
@@ -89,8 +89,8 @@ public class ChangeTrackingDatabaseTests : IDisposable
     [Fact]
     public void GetTableChanges_Reports_Insert_Update_Delete_Ordered()
     {
-        // CHANGETABLE devuelve el efecto neto POR FILA: para obtener las tres
-        // operaciones hay que tocar tres filas distintas.
+        // CHANGETABLE returns the net effect PER ROW: to get all three
+        // operations you must touch three different rows.
         var b = (int)_connection.Insert(new CtItem { Name = "B", Quantity = 2 });
         var c = (int)_connection.Insert(new CtItem { Name = "C", Quantity = 3 });
         var v0 = _db.GetDbVersion().ValueOrThrow();
@@ -165,7 +165,7 @@ public class ChangeTrackingDatabaseTests : IDisposable
         var change = Assert.Single(r.Value!.Changes);
         Assert.Equal(1, change.Id);
         Assert.Equal("B", change.Id2);
-        // SD-19: acceso tipado a las claves parciales.
+        // SD-19: typed access to the partial keys.
         var keys = r.Value.GetPartialKeys<int, string>().ToList();
         Assert.Contains((1, "B"), keys);
     }

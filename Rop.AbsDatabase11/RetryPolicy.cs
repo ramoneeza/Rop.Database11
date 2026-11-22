@@ -1,60 +1,60 @@
 namespace Rop.Database;
 
 /// <summary>
-/// Política de reintentos ante errores transitorios de la base de datos
-/// (deadlocks 1205, timeouts -2, fallos de conexión/red, errores transitorios de Azure SQL...).
+/// Retry policy for transient database errors
+/// (deadlocks 1205, timeouts -2, connection/network failures, transient Azure SQL errors...).
 /// </summary>
 /// <remarks>
-/// Los reintentos ejecutan la operación completa con una conexión NUEVA (y, en las rutas
-/// transaccionales, una transacción nueva). Los errores de negocio devueltos como
-/// <c>Result</c> fallido NO se reintentan: solo se reintentan las excepciones transitorias.
-/// Los reintentos se aplican a todas las operaciones de <see cref="AbsDatabase"/>
-/// (UnitOfWork, Query, Execute, Insert/Update/Delete...) salvo a las consultas que abren
-/// su propia conexión fuera de esa capa (p. ej. el polling del change tracking, que se
-/// autocura en el siguiente ciclo).
+/// Retries run the whole operation with a NEW connection (and, on the transactional
+/// paths, a new transaction). Business errors returned as a failed
+/// <c>Result</c> are NOT retried: only transient exceptions are retried.
+/// Retries apply to all <see cref="AbsDatabase"/> operations
+/// (UnitOfWork, Query, Execute, Insert/Update/Delete...) except queries that open
+/// their own connection outside that layer (e.g. the change tracking polling, which
+/// self-heals on the next cycle).
 /// </remarks>
 public sealed record RetryPolicy
 {
     /// <summary>
-    /// Política por defecto: 3 reintentos con backoff de 100, 250 y 500 ms y
-    /// detección de los errores transitorios estándar de SQL Server.
+    /// Default policy: 3 retries with 100, 250 and 500 ms backoff and
+    /// detection of the standard SQL Server transient errors.
     /// </summary>
     public static RetryPolicy Default { get; } = new();
 
     /// <summary>
-    /// Política sin reintentos (un único intento).
+    /// Policy with no retries (a single attempt).
     /// </summary>
     public static RetryPolicy NoRetry { get; } = new() { MaxRetries = 0 };
 
     /// <summary>
-    /// Número máximo de reintentos tras el primer intento (0 = sin reintentos). Por defecto 3.
+    /// Maximum number of retries after the first attempt (0 = no retries). Default 3.
     /// </summary>
     public int MaxRetries { get; init; } = 3;
 
     /// <summary>
-    /// Retardo antes de cada reintento (uno por reintento, en orden).
-    /// Si hay más reintentos que retardos se reutiliza el último. Por defecto 100, 250 y 500 ms.
+    /// Delay before each retry (one per retry, in order).
+    /// If there are more retries than delays, the last one is reused. Default 100, 250 and 500 ms.
     /// </summary>
     public IReadOnlyList<TimeSpan> Delays { get; init; } =
         [TimeSpan.FromMilliseconds(100), TimeSpan.FromMilliseconds(250), TimeSpan.FromMilliseconds(500)];
 
     /// <summary>
-    /// Predicado que decide si una excepción es transitoria y merece reintento.
-    /// Si es <c>null</c> se usa el detector estándar (<see cref="IsTransientDefault"/>).
+    /// Predicate that decides whether an exception is transient and worth retrying.
+    /// If <c>null</c>, the standard detector is used (<see cref="IsTransientDefault"/>).
     /// </summary>
     public Func<Exception, bool>? IsTransient { get; init; }
 
     /// <summary>
-    /// Clasifica una excepción como transitoria (sin tener en cuenta el número de intentos).
+    /// Classifies an exception as transient (without taking the attempt count into account).
     /// </summary>
     internal bool IsTransientError(Exception ex) => IsTransient is not null ? IsTransient(ex) : IsTransientDefault(ex);
 
     /// <summary>
-    /// Devuelve si el intento fallido número <paramref name="attempt"/> (1-based)
-    /// merece reintento con esta política.
+    /// Returns whether failed attempt number <paramref name="attempt"/> (1-based)
+    /// is worth retrying under this policy.
     /// </summary>
-    /// <param name="ex">Excepción del intento fallido.</param>
-    /// <param name="attempt">Número de intento fallido (1 = el primero).</param>
+    /// <param name="ex">Exception from the failed attempt.</param>
+    /// <param name="attempt">Number of the failed attempt (1 = the first).</param>
     internal bool CanRetry(Exception ex, int attempt)
     {
         if (attempt > MaxRetries) return false;
@@ -62,7 +62,7 @@ public sealed record RetryPolicy
     }
 
     /// <summary>
-    /// Retardo a aplicar tras el intento fallido número <paramref name="attempt"/>.
+    /// Delay to apply after failed attempt number <paramref name="attempt"/>.
     /// </summary>
     internal TimeSpan DelayFor(int attempt)
     {
@@ -71,11 +71,11 @@ public sealed record RetryPolicy
     }
 
     /// <summary>
-    /// Detector estándar de errores transitorios de SQL Server (funciona sin referenciar
-    /// Microsoft.Data.SqlClient: detecta <c>SqlException</c> por reflexión).
+    /// Standard detector of SQL Server transient errors (works without referencing
+    /// Microsoft.Data.SqlClient: detects <c>SqlException</c> via reflection).
     /// </summary>
-    /// <param name="ex">Excepción a clasificar.</param>
-    /// <returns><c>true</c> si la excepción es un error transitorio reintentable.</returns>
+    /// <param name="ex">Exception to classify.</param>
+    /// <returns><c>true</c> if the exception is a retryable transient error.</returns>
     public static bool IsTransientDefault(Exception ex)
     {
         if (ex is TimeoutException) return true;
@@ -85,8 +85,8 @@ public sealed record RetryPolicy
         if (name is not ("Microsoft.Data.SqlClient.SqlException" or "System.Data.SqlClient.SqlException")) return false;
         var numberProp = type.GetProperty("Number");
         var number = numberProp?.GetValue(ex) is int n ? n : 0;
-        // 1205 deadlock | -2 timeout | 2/53/64/20/233 conexión | 10053/10054/10060 winsock |
-        // 4060 BD no disponible | 40197/40501/40540/40613/10928/10929/40627/4221/615 Azure SQL
+        // 1205 deadlock | -2 timeout | 2/53/64/20/233 connection | 10053/10054/10060 winsock |
+        // 4060 database unavailable | 40197/40501/40540/40613/10928/10929/40627/4221/615 Azure SQL
         if (number is 1205 or -2 or 2 or 53 or 64 or 20 or 233 or 4060
             or 10053 or 10054 or 10060
             or 40197 or 40501 or 40540 or 40613 or 10928 or 10929 or 40627 or 4221 or 615) return true;

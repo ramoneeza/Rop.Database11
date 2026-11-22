@@ -39,7 +39,7 @@ public enum ChangeTrackingPriority
     MediumHigh = 3,
     /// <summary>
     /// Default priority - Check every 16 seconds.
-    /// Alias intencionado de Medium (mismo valor).
+    /// Intentional alias of Medium (same value).
     /// </summary>
     Default = Medium,
     /// <summary>

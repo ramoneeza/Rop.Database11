@@ -33,7 +33,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         _comparer = comparer ?? EqualityComparer<K>.Default;
         _cache = new Dictionary<K, CacheState<T>>(comparer);
         _defaultExpiration = defaultExpiration;
-        // Configuramos un temporizador para limpiar los elementos expirados periódicamente
+        // A timer cleans up expired entries periodically
         _cleanupTimer = new Timer(_cleanup, null, cleanupInterval, cleanupInterval);
     }
     /// <summary>
@@ -96,7 +96,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
             {
                 result = state switch
                 {
-                    // U-2: el estado se calcula con un único switch que compara ExpireAt.
+                    // U-2: the state is computed by a single switch that compares ExpireAt.
                     ValidItem<T> vi when vi.ExpireAt < DateTime.UtcNow => _expireNow(key, vi),
                     _ => state,
                 };
@@ -128,7 +128,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         var handler = CacheCleanUp;
         if (handler is null || keys.Count == 0) return;
         var args = new CacheCleanUpArgs<K>(keys);
-        // Un handler defectuoso no debe tumbar el proceso (callback de Timer en hilo de fondo).
+        // A faulty handler must not crash the process (Timer callback on a background thread).
         foreach (var d in handler.GetInvocationList())
         {
             if (d is not EventHandler<CacheCleanUpArgs<K>> h) continue;
@@ -197,7 +197,7 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
         {
             foreach (var k in key)
             {
-                // Las claves ausentes (p. ej. INSERTs del change tracking aún no cacheados) se ignoran.
+                // Missing keys (e.g. change tracking INSERTs not yet cached) are ignored.
                 if (_cache.TryGetValue(k, out var state) && state is ValidItem<T> vi)
                 {
                     if (vi.Value is IDisposable d) d.Dispose();
@@ -324,12 +324,12 @@ public class MemoryCache<K, T> : IDisposable where K : notnull where T : class
                         expiredkeys.Add(kvp.Key);
                         break;
                     case JustExpiredItem:
-                        break; // no se almacena; defensivo
+                        break; // not stored; defensive
                 }
             }
             count = _cache.Count;
         }
-        // SD-4: la consulta a BD va FUERA del lock para no bloquear lectores/escritores.
+        // SD-4: the DB query runs OUTSIDE the lock to avoid blocking readers/writers.
         var res = refreshfunction(count,expiredkeys);
         lock (_lock)
         {

@@ -4,10 +4,10 @@ namespace Rop.Database;
 internal static class ConnStringExtractor
 {
     /// <summary>
-    /// Extrae DataSource e InitialCatalog como tupla. Devuelve null en cada elemento si no se encuentra.
-    /// Reconoce los alias habituales de SQL Server: Data Source/Server/Address/Addr/Network Address
-    /// e Initial Catalog/Database. Los valores entre comillas (p. ej. passwords con ';' o con texto
-    /// que parece una clave) se respetan gracias a DbConnectionStringBuilder.
+    /// Extracts DataSource and InitialCatalog as a tuple. Returns null for each element if not found.
+    /// Recognizes the usual SQL Server aliases: Data Source/Server/Address/Addr/Network Address
+    /// and Initial Catalog/Database. Quoted values (e.g. passwords with ';' or with text
+    /// that looks like a key) are respected thanks to DbConnectionStringBuilder.
     /// </summary>
     public static (string? DataSource, string? InitialCatalog) Extract(string? conn)
     {
@@ -21,7 +21,7 @@ internal static class ConnStringExtractor
         }
         catch (ArgumentException)
         {
-            // Connection string malformado: sin datos extraibles.
+            // Malformed connection string: no extractable data.
             return (null, null);
         }
     }

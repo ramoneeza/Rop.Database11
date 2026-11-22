@@ -43,7 +43,7 @@ namespace Rop.Database11
         /// </summary>
         public event EventHandler<DeltaChanges>? OnChanged;
 
-        // Cambiado a internal para que Database (mismo ensamblado) pueda instanciarlo.
+        // Made internal so Database (same assembly) can instantiate it.
         internal SqlTableDependency(Database database, Type t, ChangeTrackingPriority priority = ChangeTrackingPriority.Default)
         {
             var name = CalcKey(database, t);
@@ -80,9 +80,9 @@ namespace Rop.Database11
                 var deltaChanges = r.ValueOrThrow();
                 if (deltaChanges.IsNewVersion)
                 {
-                    // SD-7: avanzar SIEMPRE que haya version nueva, aunque el delta
-                    // venga vacio (cambios filtrados como Unknown): sin avanzar se
-                    // releerian las mismas filas indefinidamente.
+                    // SD-7: ALWAYS advance when there is a new version, even if the delta
+                    // comes back empty (changes filtered as Unknown): without advancing,
+                    // the same rows would be re-read indefinitely.
                     TableVersion = new TrackingVersion
                     {
                         Version = deltaChanges.Version,
@@ -94,8 +94,8 @@ namespace Rop.Database11
             }
             catch (OperationCanceledException)
             {
-                // La cancelacion se propaga al bucle del CycleTaskService, que la
-                // usa para detenerse de forma limpia.
+                // The cancellation propagates to the CycleTaskService loop, which
+                // uses it to stop cleanly.
                 throw;
             }
             catch (Exception ex)
@@ -130,9 +130,9 @@ namespace Rop.Database11
         {
             if (_disposed) return;
             if (OnChanged == null) return;
-            // SD-8: cola FIFO por dependencia con un unico lector: los deltas se
-            // entregan en orden y serializados (antes: un Task.Run por delta,
-            // sin orden ni backpressure).
+            // SD-8: FIFO queue per dependency with a single reader: deltas are
+            // delivered in order and serialized (before: one Task.Run per delta,
+            // with no order or backpressure).
             _changes.Writer.TryWrite(deltaChanges);
             if (_readerTask is not null) return;
             lock (_readerLock)

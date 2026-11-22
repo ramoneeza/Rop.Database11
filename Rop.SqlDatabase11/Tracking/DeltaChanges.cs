@@ -204,8 +204,8 @@ namespace Rop.Database11
             }
             catch (Exception ex) when (ex is FormatException or InvalidCastException or OverflowException or ArgumentException)
             {
-                // Contrato uniforme: cualquier fallo de conversion sale como
-                // InvalidCastException (con la causa como inner exception).
+                // Uniform contract: any conversion failure surfaces as
+                // InvalidCastException (with the cause as the inner exception).
                 throw new InvalidCastException($"Cannot convert key value '{value}' to type {t.Name}", ex);
             }
         }

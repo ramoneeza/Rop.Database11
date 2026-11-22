@@ -42,11 +42,11 @@ public class TypeHandlerTests : IDisposable
     [Fact]
     public void Ensure_Is_Thread_Safe_And_Idempotent()
     {
-        // SD-12: registros concurrentes no deben lanzar (duplicado de handler).
+        // SD-12: concurrent registrations must not throw (duplicate handler).
         Parallel.For(0, 64, _ => NewTypeHandlers.Ensure());
         NewTypeHandlers.Ensure();
 
-        // Sin excepcion = registro unico garantizado.
+        // No exception = single registration guaranteed.
         Assert.True(true);
     }
 

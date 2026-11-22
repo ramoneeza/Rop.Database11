@@ -13,7 +13,7 @@ public class MemoryCacheTests
     private static MemoryCache<int, ItemIntAuto> NewCache() => new(
         item => item.Id,
         TimeSpan.FromMinutes(5),
-        TimeSpan.FromHours(1), // intervalo de limpieza largo para que el timer no interfiera en los tests
+        TimeSpan.FromHours(1), // long cleanup interval so the timer does not interfere with the tests
         null);
 
     [Fact]
@@ -23,8 +23,8 @@ public class MemoryCacheTests
         cache.Add(new ItemIntAuto { Id = 1, Name = "A", Quantity = 1 });
         cache.Add(new ItemIntAuto { Id = 2, Name = "B", Quantity = 2 });
 
-        // La clave 3 no existe: reproduce los INSERTs del change tracking
-        // que reportan claves que aún no están en el cache.
+        // Key 3 does not exist: it reproduces the change tracking INSERTs
+        // that report keys not yet in the cache.
         var expired = cache.Expires(new[] { 1, 3 });
 
         Assert.Equal(new[] { 1 }, expired);
@@ -60,8 +60,8 @@ public class MemoryCacheTests
         Assert.True(cache.GetValueOrDefault(2) is ExpiredItem);
     }
 
-    // U-2: TryGetValue devuelve el estado como union y transiciona al expirar:
-    // ValidItem -> JustExpiredItem (primer acceso tras expirar) -> ExpiredItem.
+    // U-2: TryGetValue returns the state as a union and transitions on expiry:
+    // ValidItem -> JustExpiredItem (first access after expiry) -> ExpiredItem.
     [Fact]
     public void TryGetValue_Returns_States_And_Transitions_On_Expiry()
     {
@@ -70,16 +70,17 @@ public class MemoryCacheTests
 
         Assert.True(cache.TryGetValue(1) is ValidItem<ItemIntAuto>);
 
-        Thread.Sleep(150); // deja pasar la expiracion
+        Thread.Sleep(150); // let the expiration elapse
 
         Assert.True(cache.TryGetValue(1) is JustExpiredItem);
         Assert.True(cache.TryGetValue(1) is ExpiredItem);
 
-        Assert.Null(cache.TryGetValue(99)); // clave inexistente
+        Assert.Null(cache.TryGetValue(99)); // nonexistent key
     }
 
-    // SD-6: un handler que lanza no debe impedir que los demás handlers se ejecuten
-    // ni propagar la excepción (callback de Timer en hilo de fondo = caída del proceso).
+    // SD-6: a handler that throws must not prevent the other handlers from
+    // running nor propagate the exception (Timer callback on a background
+    // thread = process crash).
     [Fact]
     public void OnCacheCleanUp_Handler_Throwing_Does_Not_Stop_Other_Handlers()
     {
@@ -90,13 +91,13 @@ public class MemoryCacheTests
         cache.CacheCleanUp += (_, _) => throw new InvalidOperationException("handler roto");
         cache.CacheCleanUp += (_, args) => secondHandlerKeys.AddRange(args.CleanUpKeys.Cast<int>());
 
-        // Expires es el camino público que dispara CacheCleanUp sin depender del timer.
+        // Expires is the public path that triggers CacheCleanUp without relying on the timer.
         cache.Expires(new[] { 1 });
 
         Assert.Equal(new[] { 1 }, secondHandlerKeys);
     }
 
-    // SD-6: Dispose no lanza y es idempotente.
+    // SD-6: Dispose does not throw and is idempotent.
     [Fact]
     public void Dispose_Does_Not_Throw_And_Is_Idempotent()
     {
@@ -107,7 +108,7 @@ public class MemoryCacheTests
         cache.Dispose();
     }
 
-    // SD-6: tras Dispose el timer deja de disparar el evento de limpieza.
+    // SD-6: after Dispose the timer stops firing the cleanup event.
     [Fact]
     public void Dispose_Stops_Timer()
     {
@@ -118,9 +119,9 @@ public class MemoryCacheTests
             null);
 
         var cleanupCount = 0;
-        // El handler realimenta el cache con un item de vida corta para que el timer
-        // tenga siempre algo expirado que limpiar (si no, tras la primera expiración
-        // el evento dejaría de dispararse y el test no distinguiría nada).
+        // The handler feeds the cache back with a short-lived item so the timer
+        // always has something expired to clean up (otherwise, after the first
+        // expiration the event would stop firing and the test would see nothing).
         cache.CacheCleanUp += (_, _) =>
         {
             Interlocked.Increment(ref cleanupCount);
@@ -128,24 +129,24 @@ public class MemoryCacheTests
         };
         cache.Add(new ItemIntAuto { Id = 1, Name = "A", Quantity = 1 }, TimeSpan.FromMilliseconds(20));
 
-        // Espera generosa a que el timer dispare al menos un par de veces.
+        // Generous wait for the timer to fire at least a couple of times.
         var deadline = DateTime.UtcNow.AddSeconds(5);
         while (Volatile.Read(ref cleanupCount) < 2 && DateTime.UtcNow < deadline)
         {
             Thread.Sleep(10);
         }
-        Assert.True(Volatile.Read(ref cleanupCount) >= 2, "el timer debería haber disparado la limpieza antes del Dispose");
+        Assert.True(Volatile.Read(ref cleanupCount) >= 2, "the timer should have fired the cleanup before Dispose");
 
         cache.Dispose();
 
-        // Margen para que termine un tick que ya estuviera en vuelo, y entonces se congela el contador.
+        // Margin for an in-flight tick to finish, then the counter is frozen.
         Thread.Sleep(200);
         var frozenCount = Volatile.Read(ref cleanupCount);
         Thread.Sleep(300);
         Assert.Equal(frozenCount, Volatile.Read(ref cleanupCount));
     }
 
-    // SD-4: la consulta a BD (callback de RefreshAll) no debe ejecutarse bajo el lock.
+    // SD-4: the DB query (RefreshAll callback) must not run under the lock.
     [Fact]
     public void RefreshAll_Does_Not_Hold_Lock_During_Refresh_Callback()
     {
@@ -161,9 +162,9 @@ public class MemoryCacheTests
         }));
         Assert.True(started.Wait(TimeSpan.FromSeconds(5)));
 
-        // Mientras la recarga esta bloqueada, escribir en el cache debe completar.
+        // While the reload is blocked, writing to the cache must complete.
         var addTask = Task.Run(() => cache.Add(new ItemIntAuto { Id = 9, Name = "X", Quantity = 1 }));
-        Assert.True(addTask.Wait(TimeSpan.FromSeconds(2))); // antes quedaba bloqueado por el lock
+        Assert.True(addTask.Wait(TimeSpan.FromSeconds(2))); // previously it was blocked by the lock
 
         release.Set();
         Assert.True(refresh.Wait(TimeSpan.FromSeconds(5)));

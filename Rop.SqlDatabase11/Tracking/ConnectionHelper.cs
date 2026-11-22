@@ -118,7 +118,7 @@ namespace Rop.Database11
         public static Result<DeltaChanges> GetTableChanges(this DbConnection conn,long lastv,KeyDescription td)
         {
             var use = td.GetUse();
-            // CE-7: identificadores escapados.
+            // CE-7: escaped identifiers.
             // ReSharper disable once StringLiteralTypo
             var cmdStr = (!(td is PartialKeyDescription ptd))
                 ? $"{use}SELECT {DapperHelperExtend.SqlName(td.KeyName)} as Id,SYS_CHANGE_VERSION,SYS_CHANGE_CREATION_VERSION,SYS_CHANGE_OPERATION FROM changetable(changes {DapperHelperExtend.SqlName(td.TableName)},@lastversion) as CT ORDER BY SYS_CHANGE_VERSION"
@@ -127,8 +127,8 @@ namespace Rop.Database11
             if (r.Count == 0) return DeltaChanges.Empty(td,lastv);
             var cv = r.Max(cr => cr.SYS_CHANGE_VERSION);
             var all = r.Select(dto => dto.ToChangeRow(td)).Where(c => c.Operation != ChangeOperation.Unknown).ToList();
-            // U-1: si todos los cambios se filtraron como Unknown, la version puede
-            // haber avanzado igualmente (SD-7): EmptyDelta con la version nueva.
+            // U-1: if all changes were filtered out as Unknown, the version may
+            // have advanced anyway (SD-7): EmptyDelta with the new version.
             DeltaChanges delta = all.Count == 0 ? new EmptyDelta(td,cv, lastv) : new TableDelta(td,cv, lastv, all);
             return delta;
         }
@@ -144,7 +144,7 @@ namespace Rop.Database11
         {
             cancellationToken.ThrowIfCancellationRequested();
             var use = td.GetUse();
-            // CE-7: identificadores escapados.
+            // CE-7: escaped identifiers.
             // ReSharper disable once StringLiteralTypo
             var cmdStr = (!(td is PartialKeyDescription ptd))
                 ? $"{use}SELECT {DapperHelperExtend.SqlName(td.KeyName)} as Id,SYS_CHANGE_VERSION,SYS_CHANGE_CREATION_VERSION,SYS_CHANGE_OPERATION FROM changetable(changes {DapperHelperExtend.SqlName(td.TableName)},@lastversion) as CT ORDER BY SYS_CHANGE_VERSION"
@@ -153,8 +153,8 @@ namespace Rop.Database11
             if (r.Count == 0) return DeltaChanges.Empty(td,lastv);
             var cv = r.Max(cr => cr.SYS_CHANGE_VERSION);
             var all = r.Select(dto => dto.ToChangeRow(td)).Where(c => c.Operation != ChangeOperation.Unknown).ToList();
-            // U-1: si todos los cambios se filtraron como Unknown, la version puede
-            // haber avanzado igualmente (SD-7): EmptyDelta con la version nueva.
+            // U-1: if all changes were filtered out as Unknown, the version may
+            // have advanced anyway (SD-7): EmptyDelta with the new version.
             DeltaChanges delta = all.Count == 0 ? new EmptyDelta(td,cv, lastv) : new TableDelta(td,cv, lastv, all);
             return delta;
         }
@@ -162,8 +162,8 @@ namespace Rop.Database11
         [SuppressMessage("ReSharper", "InconsistentNaming")]
         private class ChangeRowDto
         {
-            // SD-19: object en lugar de dynamic (sin binder de runtime por fila);
-            // la conversion al tipo real de la clave ocurre en ToChangeRow.
+            // SD-19: object instead of dynamic (no runtime binder per row);
+            // the conversion to the actual key type happens in ToChangeRow.
             public object Id { get; init; } = null!;
             public object? Id2 { get; init; } = null;
             public long SYS_CHANGE_VERSION { get; init; }

@@ -3,14 +3,14 @@ using Rop.Dapper.ContribEx11;
 using Rop.Database11.CachePartialKeyRepository;
 using Rop.Database11.PartialKeyRepository;
 using Rop.Results9;
-// Alias con nombre distinto: "Database" enlazaría al namespace Rop.Database.
+// Alias with a different name: "Database" would bind to the Rop.Database namespace.
 using SqlDb = Rop.Database11.Database;
 
 namespace Rop.SqlDatabase11.Tests;
 
 /// <summary>
-/// Tests for the partial key repositories with cache expiration (tablas SIN
-/// change tracking: la expiración TTL es el mecanismo de invalidación).
+/// Tests for the partial key repositories with cache expiration (tables WITHOUT
+/// change tracking: TTL expiration is the invalidation mechanism).
 /// </summary>
 [Collection("Database")]
 public class CachePartialRepositoryTests : IDisposable
@@ -69,7 +69,7 @@ public class CachePartialRepositoryTests : IDisposable
         var all = repo.GetAll(out var error);
 
         Assert.Null(error);
-        Assert.Equal(2, all.Count); // bloques por OwnerId: 1 y 2
+        Assert.Equal(2, all.Count); // blocks by OwnerId: 1 and 2
         var block1 = all.Single(b => b.Key == 1);
         Assert.Equal(new[] { "A", "B" }, block1.Block.Select(i => i.Code).ToArray());
 
@@ -77,7 +77,7 @@ public class CachePartialRepositoryTests : IDisposable
         Assert.Null(error2);
         Assert.Equal(2, block!.Block.Count);
 
-        // GetKey del core extrae la primera clave parcial
+        // The core GetKey extracts the first partial key
         Assert.Equal(1, repo.GetKey(new ItemPartial { OwnerId = 1, Code = "X" }));
     }
 
@@ -93,12 +93,12 @@ public class CachePartialRepositoryTests : IDisposable
         Assert.Equal(2, first.Count);
         Assert.Equal(1, repo.ReloadCount);
 
-        Thread.Sleep(150); // deja expirar las entradas
+        Thread.Sleep(150); // let the entries expire
 
         var second = repo.GetAll(out var error2);
 
         Assert.Null(error2);
         Assert.Equal(2, second.Count);
-        Assert.Equal(2, repo.ReloadCount); // recargada desde BD al expirar
+        Assert.Equal(2, repo.ReloadCount); // reloaded from the DB after expiry
     }
 }

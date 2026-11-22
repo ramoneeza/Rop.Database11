@@ -40,10 +40,10 @@ public abstract partial class AbsDatabase
     public string MainDatabaseName { get; } = "";
 
     /// <summary>
-    /// Política de reintentos ante errores transitorios (deadlock 1205, timeouts, fallos de conexión...).
-    /// Afecta a todas las operaciones que abren conexión a través de esta instancia
-    /// (UnitOfWork, Query, Execute, Insert/Update/Delete...). Por defecto 3 reintentos con
-    /// backoff 100/250/500 ms. Usar <see cref="RetryPolicy.NoRetry"/> para desactivarla.
+    /// Retry policy for transient errors (deadlock 1205, timeouts, connection failures...).
+    /// Applies to all operations that open a connection through this instance
+    /// (UnitOfWork, Query, Execute, Insert/Update/Delete...). By default 3 retries with
+    /// 100/250/500 ms backoff. Use <see cref="RetryPolicy.NoRetry"/> to disable it.
     /// </summary>
     public RetryPolicy RetryPolicy { get; set; } = RetryPolicy.Default;
 
@@ -83,7 +83,7 @@ public abstract partial class AbsDatabase
     /// <returns>Result with the inserted key or affected rows as integer.</returns>
     public Result<int> Insert<T>(T item) where T:class
     {
-        // AB-8: write transaccional para que el reintento ante errores transitorios sea seguro
+        // AB-8: transactional write so that retrying on transient errors is safe
         return UnitOfWorkSingle<int>((conn, tr) => (int)conn.Insert(item, tr));
     }
     /// <summary>
@@ -173,8 +173,8 @@ public abstract partial class AbsDatabase
         {
             var td = DapperHelperExtend.GetKeyDescription<T>();
             if (td is null) return Error.Fail("Table Key Description not found");
-            // AB-4: nombre escapado con su esquema (si el usuario lo incluyo en
-            // [Table]) y USE para externas; ya no se asume el esquema dbo.
+            // AB-4: escaped name with its schema (if the user included it in
+            // [Table]) and USE for external databases; the dbo schema is no longer assumed.
             var t = $"{td.GetUse()}SELECT TOP(1) * FROM {DapperHelperExtend.SqlName(td.TableName)}";
             return UnitOfWorkSingle(conn => conn.QueryFirstOrDefault<T>(t));
         }
@@ -373,7 +373,7 @@ public abstract partial class AbsDatabase
         
     public Task<Result<bool>> DeleteAsync<T>(T item, CancellationToken cancellationToken = default) where T : class
     {
-        // Dapper.Contrib 2.0.78: DeleteAsync no acepta CancellationToken (limitacion documentada en AB-7)
+        // Dapper.Contrib 2.0.78: DeleteAsync does not accept a CancellationToken (limitation documented in AB-7)
         return UnitOfWorkSingleAsync<bool>((conn, tr) => conn.DeleteAsync(item, tr, null), cancellationToken);
     }
     /// <summary>

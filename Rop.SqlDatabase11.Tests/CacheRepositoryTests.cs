@@ -4,15 +4,15 @@ using Rop.Dapper.ContribEx11;
 using Rop.Database11.CacheRepository;
 using Rop.Database11.Repository;
 using Rop.Results9;
-// Alias con nombre distinto: "Database" enlazaría al namespace Rop.Database (miembro del padre Rop)
-// y los using/aliases no pueden vencer a un miembro del namespace contenedor.
+// Alias with a different name: "Database" would bind to the Rop.Database namespace (a member of the parent Rop)
+// and using directives/aliases cannot beat a member of the containing namespace.
 using SqlDb = Rop.Database11.Database;
 
 namespace Rop.SqlDatabase11.Tests;
 
 /// <summary>
 /// Tests for the cache repository (SD-3): when the reload fails, GetAll
-/// must return the in-memory data (mal menor) and report the error by out,
+/// must return the in-memory data (the lesser evil) and report the error by out,
 /// instead of throwing NRE. Uses a real Database against the LocalDB fixture.
 /// </summary>
 [Collection("Database")]
@@ -33,8 +33,8 @@ public class CacheRepositoryTests : IDisposable
     [Fact]
     public void Dispose_Is_Idempotent_And_Keeps_Database_Usable()
     {
-        // SD-17: disponer el repo cache (MemoryCache con timer) es idempotente
-        // y NO dispone el Database compartido.
+        // SD-17: disposing the cache repo (MemoryCache with timer) is
+        // idempotent and does NOT dispose the shared Database.
         var db = new SqlDb(_connection.ConnectionString);
         var repo = NewWorkingRepo(db);
         repo.Init();
@@ -63,7 +63,7 @@ public class CacheRepositoryTests : IDisposable
         protected override EnumerableResult<ItemIntAuto> IntReloadSome(params IEnumerable<int> keys) => ReloadSome(keys);
     }
 
-    /// <summary>Vista distinta del DTO para probar repos con T != D (SD-13).</summary>
+    /// <summary>A different view of the DTO to test repos with T != D (SD-13).</summary>
     private sealed class ItemIntView
     {
         public int Id { get; set; }
@@ -112,8 +112,8 @@ public class CacheRepositoryTests : IDisposable
         var repo = NewFailingRepo(db);
         repo.Init();
 
-        // Mal menor: devolver lo que quede en memoria (aqui nada, nunca cargo)
-        // y reportar el error por out, sin lanzar NRE.
+        // The lesser evil: return whatever remains in memory (nothing here,
+        // it never loaded) and report the error by out, without throwing NRE.
         var r = repo.GetAll(out var error);
 
         Assert.NotNull(error);
@@ -182,7 +182,7 @@ public class CacheRepositoryTests : IDisposable
         var r = repo.Get(1, out var error);
 
         Assert.Null(r);
-        Assert.NotNull(error); // error real, no "no encontrado"
+        Assert.NotNull(error); // a real error, not "not found"
     }
 
     [Fact]
@@ -214,8 +214,8 @@ public class CacheRepositoryTests : IDisposable
     [Fact]
     public void GetDKey_With_Dto_Uses_Dto_Key_Property()
     {
-        // SD-13: GetDKey usaba la propiedad del tipo T sobre una instancia D
-        // (TargetException cuando T != D).
+        // SD-13: GetDKey used the T-type property on a D instance
+        // (TargetException when T != D).
         var db = new SqlDb(_connection.ConnectionString);
         var repo = new DtoRepo(db);
 
@@ -227,15 +227,15 @@ public class CacheRepositoryTests : IDisposable
     [Fact]
     public async Task GetAll_Does_Not_Block_Get_Of_Cached_Items_During_Reload()
     {
-        // SD-4: la recarga (BD) no debe bloquear las lecturas de items ya en cache.
+        // SD-4: the reload (DB) must not block reads of items already in the cache.
         var db = new SqlDb(_connection.ConnectionString);
         var repo = NewWorkingRepo(db);
         repo.Init();
         Assert.Equal(2, repo.GetAll(out var e0).Count);
         Assert.Null(e0);
 
-        // Ambas recargas bloqueadas: asi RefreshAll siempre cae en el bloqueo
-        // (sea IntReloadAll o IntReloadSome segun el umbral de claves expiradas).
+        // Both reloads blocked: so RefreshAll always hits the block
+        // (whether IntReloadAll or IntReloadSome, depending on the expired-key threshold).
         var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         var release = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
         Func<EnumerableResult<ItemIntAuto>> blocking = () =>
@@ -252,13 +252,13 @@ public class CacheRepositoryTests : IDisposable
 
         var getTask = Task.Run(() => repo.Get(1, out _));
         var completed = await Task.WhenAny(getTask, Task.Delay(TimeSpan.FromSeconds(2)));
-        Assert.Same(getTask, completed); // la lectura desde cache no debe esperar a la recarga
+        Assert.Same(getTask, completed); // the cache read must not wait for the reload
 
         release.TrySetResult();
         await getAllTask.WaitAsync(TimeSpan.FromSeconds(5));
     }
 
-    // ==== Riqueza de CacheRepository (variantes DTO/string e ISqlRepository) ====
+    // ==== CacheRepository richness (DTO/string and ISqlRepository variants) ====
 
     private sealed class SimpleIntDtoRepo : AbsSimpleCacheSqlIntRepository<ItemIntView, ItemIntAuto>
     {
@@ -279,7 +279,7 @@ public class CacheRepositoryTests : IDisposable
     [Fact]
     public void Extension_Indexer_Reads_Item_By_Key()
     {
-        // EI-1: repo[key] como azúcar sobre Get(key, out _) (extension indexer).
+        // EI-1: repo[key] as sugar over Get(key, out _) (extension indexer).
         var db = new SqlDb(_connection.ConnectionString);
         var repo = NewWorkingRepo(db);
         repo.Init();
