@@ -6,8 +6,6 @@
   <Folder Name="/Docs/">
     <File Path="Docs/CHANGELOG.md" />
     <File Path="Docs/TODO.md" />
-    <File Path="Docs/00-fallos-y-mejoras.md" />
-    <File Path="Docs/01-mejoras-net11-csharp15.md" />
   </Folder>
   <Project Path="Rop.AbsDatabase11/Rop.AbsDatabase11.csproj" />
   <Project Path="Rop.AbsDatabase11.Tests/Rop.AbsDatabase11.Tests.csproj" />
